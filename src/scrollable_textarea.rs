@@ -1,10 +1,10 @@
-use crate::ORANGE;
+use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Paragraph, Widget},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 use tui_textarea::TextArea;
@@ -15,7 +15,9 @@ pub struct ScrollableTextArea {
     pub scroll: usize,
     pub focused_index: usize,
     pub edit_mode: bool,
+    pub full_screen_mode: bool,
     pub viewport_height: u16,
+    markdown_renderer: MarkdownRenderer,
 }
 
 impl ScrollableTextArea {
@@ -26,14 +28,29 @@ impl ScrollableTextArea {
             scroll: 0,
             focused_index: 0,
             edit_mode: false,
+            full_screen_mode: false,
             viewport_height: 0,
+            markdown_renderer: MarkdownRenderer::new(),
+        }
+    }
+
+    pub fn toggle_full_screen(&mut self) {
+        self.full_screen_mode = !self.full_screen_mode;
+        if self.full_screen_mode {
+            self.edit_mode = false;
         }
     }
 
     pub fn add_textarea(&mut self, textarea: TextArea<'static>, title: String) {
-        self.textareas.push(textarea);
-        self.titles.push(title);
-        self.focused_index = self.textareas.len() - 1;
+        let new_index = if self.textareas.is_empty() {
+            0
+        } else {
+            self.focused_index + 1
+        };
+
+        self.textareas.insert(new_index, textarea);
+        self.titles.insert(new_index, title);
+        self.focused_index = new_index;
         self.adjust_scroll_to_focused();
     }
 
@@ -113,93 +130,142 @@ impl ScrollableTextArea {
         self.focused_index = 0;
     }
 
+    pub fn copy_focused_textarea_contents(&self) -> anyhow::Result<()> {
+        if let Some(textarea) = self.textareas.get(self.focused_index) {
+            let content = textarea.lines().join("\n");
+            let mut ctx = ClipboardContext::new().unwrap();
+            ctx.set_contents(content).unwrap();
+        }
+        Ok(())
+    }
+
+    fn render_full_screen_edit(&mut self, f: &mut Frame, area: Rect) {
+        let textarea = &mut self.textareas[self.focused_index];
+        let title = &self.titles[self.focused_index];
+
+        let block = Block::default()
+            .title(title.clone())
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(ORANGE));
+
+        let edit_style = Style::default().fg(Color::Black).bg(Color::DarkGray);
+        let cursor_style = Style::default().fg(Color::White).bg(Color::Black);
+
+        textarea.set_block(block);
+        textarea.set_style(edit_style);
+        textarea.set_cursor_style(cursor_style);
+        f.render_widget(textarea.widget(), area);
+    }
+
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
         self.viewport_height = area.height;
-        let mut remaining_height = area.height;
-        let mut visible_textareas = Vec::with_capacity(self.textareas.len());
 
-        const MAX_HEIGHT: u16 = 10;
-
-        for (i, textarea) in self.textareas.iter_mut().enumerate().skip(self.scroll) {
-            if remaining_height == 0 {
-                break;
-            }
-
-            let content_height = textarea.lines().len() as u16 + 2;
-            let is_focused = i == self.focused_index;
-            let is_editing = is_focused && self.edit_mode;
-
-            let height = if is_editing && content_height > MAX_HEIGHT {
-                remaining_height
+        if self.full_screen_mode {
+            if self.edit_mode {
+                self.render_full_screen_edit(f, area);
             } else {
-                content_height.min(remaining_height).min(MAX_HEIGHT)
-            };
-
-            visible_textareas.push((i, textarea, height));
-            remaining_height = remaining_height.saturating_sub(height);
-
-            if is_editing {
-                break;
+                self.render_full_screen(f, area);
             }
-        }
+        } else {
+            // Normal mode rendering
+            let mut remaining_height = area.height;
+            let mut visible_textareas = Vec::with_capacity(self.textareas.len());
 
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                visible_textareas
-                    .iter()
-                    .map(|(_, _, height)| Constraint::Length(*height))
-                    .collect::<Vec<_>>(),
-            )
-            .split(area);
+            const MAX_HEIGHT: u16 = 10;
 
-        for ((i, textarea, height), chunk) in visible_textareas.into_iter().zip(chunks.iter()) {
-            let title = &self.titles[i];
-            let is_focused = i == self.focused_index;
-            let is_editing = is_focused && self.edit_mode;
-
-            let style = if is_focused {
-                if is_editing {
-                    Style::default().fg(Color::Black).bg(Color::DarkGray)
-                } else {
-                    Style::default().fg(Color::Black).bg(Color::Gray)
+            for (i, textarea) in self.textareas.iter_mut().enumerate().skip(self.scroll) {
+                if remaining_height == 0 {
+                    break;
                 }
-            } else {
-                Style::default().fg(Color::White).bg(Color::Reset)
-            };
 
-            let block = Block::default()
-                .title(title.clone())
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(ORANGE))
-                .style(style);
+                let content_height = textarea.lines().len() as u16 + 2;
+                let is_focused = i == self.focused_index;
+                let is_editing = is_focused && self.edit_mode;
 
-            let content_height = textarea.lines().len() as u16;
-            let visible_lines = height.saturating_sub(2);
+                let height = if is_editing && content_height > MAX_HEIGHT {
+                    remaining_height
+                } else {
+                    content_height.min(remaining_height).min(MAX_HEIGHT)
+                };
 
-            if content_height > visible_lines && !is_editing {
-                let truncated_content: String = textarea
-                    .lines()
-                    .iter()
-                    .take(visible_lines as usize)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                visible_textareas.push((i, textarea, height));
+                remaining_height = remaining_height.saturating_sub(height);
 
-                let truncated_text = format!("{}\n...", truncated_content);
-                let truncated_paragraph = Paragraph::new(truncated_text).block(block);
-                f.render_widget(truncated_paragraph, *chunk);
-            } else {
-                textarea.set_block(block);
-                textarea.set_style(style);
                 if is_editing {
+                    break;
+                }
+            }
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(
+                    visible_textareas
+                        .iter()
+                        .map(|(_, _, height)| Constraint::Length(*height))
+                        .collect::<Vec<_>>(),
+                )
+                .split(area);
+
+            for ((i, textarea, _), chunk) in visible_textareas.into_iter().zip(chunks.iter()) {
+                let title = &self.titles[i];
+                let is_focused = i == self.focused_index;
+                let is_editing = is_focused && self.edit_mode;
+
+                let style = if is_focused {
+                    if is_editing {
+                        Style::default().fg(Color::Black).bg(Color::DarkGray)
+                    } else {
+                        Style::default().fg(Color::Black).bg(Color::Gray)
+                    }
+                } else {
+                    Style::default().fg(Color::White).bg(Color::Reset)
+                };
+
+                let block = Block::default()
+                    .title(title.clone())
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(ORANGE))
+                    .style(style);
+
+                if is_editing {
+                    textarea.set_block(block);
+                    textarea.set_style(style);
                     textarea.set_cursor_style(Style::default().fg(Color::White).bg(Color::Black));
+                    f.render_widget(textarea.widget(), *chunk);
                 } else {
-                    textarea.set_cursor_style(style);
+                    let content = textarea.lines().join("\n");
+                    let rendered_markdown = self
+                        .markdown_renderer
+                        .render_markdown(content, title.clone());
+                    let paragraph = Paragraph::new(rendered_markdown)
+                        .block(block)
+                        .wrap(Wrap { trim: true });
+                    f.render_widget(paragraph, *chunk);
                 }
-                f.render_widget(textarea.widget(), *chunk);
             }
         }
+    }
+
+    fn render_full_screen(&self, f: &mut Frame, area: Rect) {
+        let textarea = &self.textareas[self.focused_index];
+        let title = &self.titles[self.focused_index];
+
+        let block = Block::default()
+            .title(title.clone())
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(ORANGE));
+
+        let content = textarea.lines().join("\n");
+        let rendered_markdown = self
+            .markdown_renderer
+            .render_markdown(content, title.clone());
+
+        let paragraph = Paragraph::new(rendered_markdown)
+            .block(block)
+            .wrap(Wrap { trim: true })
+            .scroll((self.scroll as u16, 0));
+
+        f.render_widget(paragraph, area);
     }
 
     #[cfg(test)]
@@ -210,7 +276,9 @@ impl ScrollableTextArea {
             scroll: 0,
             focused_index: 0,
             edit_mode: false,
+            full_screen_mode: false,
             viewport_height: 0,
+            markdown_renderer: MarkdownRenderer::new(),
         }
     }
 }

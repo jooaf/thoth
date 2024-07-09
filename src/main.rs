@@ -1,5 +1,5 @@
 use anyhow::Result;
-use copypasta::{ClipboardContext, ClipboardProvider};
+use clap::{Parser, Subcommand};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -17,7 +17,119 @@ use thoth::{
 };
 use tui_textarea::TextArea;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Add { name: String, content: String },
+    List,
+    Delete { name: String },
+}
+
 fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Some(Commands::Add { name, content }) => {
+            add_block(name, content)?;
+        }
+        Some(Commands::List) => {
+            list_blocks()?;
+        }
+        Some(Commands::Delete { name }) => {
+            delete_block(name)?;
+        }
+        None => {
+            run_ui()?;
+        }
+    }
+
+    Ok(())
+}
+
+fn add_block(name: &str, content: &str) -> Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(SAVE_FILE)?;
+
+    writeln!(file, "# {}", name)?;
+    writeln!(file, "{}", content)?;
+    writeln!(file)?;
+
+    println!("Block '{}' added successfully.", name);
+    Ok(())
+}
+
+fn list_blocks() -> Result<()> {
+    let file = File::open(SAVE_FILE)?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("# ") {
+            println!("{}", &line[2..]);
+        }
+    }
+
+    Ok(())
+}
+
+fn delete_block(name: &str) -> Result<()> {
+    let file = File::open(SAVE_FILE)?;
+    let reader = BufReader::new(file);
+    let mut blocks = Vec::new();
+    let mut current_block = Vec::new();
+    let mut current_name = String::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("# ") {
+            if !current_name.is_empty() {
+                blocks.push((current_name, current_block));
+                current_block = Vec::new();
+            }
+            current_name = line[2..].to_string();
+        } else {
+            current_block.push(line);
+        }
+    }
+
+    if !current_name.is_empty() {
+        blocks.push((current_name, current_block));
+    }
+
+    let mut file = File::create(SAVE_FILE)?;
+    let mut deleted = false;
+
+    for (block_name, block_content) in blocks {
+        if block_name != name {
+            writeln!(file, "# {}", block_name)?;
+            for line in block_content {
+                writeln!(file, "{}", line)?;
+            }
+            writeln!(file)?;
+        } else {
+            deleted = true;
+        }
+    }
+
+    if deleted {
+        println!("Block '{}' deleted successfully.", name);
+    } else {
+        println!("Block '{}' not found.", name);
+    }
+
+    Ok(())
+}
+
+fn run_ui() -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -53,7 +165,12 @@ fn main() -> Result<()> {
                 .split(f.size());
 
             render_header(f, chunks[0]);
-            scrollable_textarea.render(f, chunks[1]);
+
+            if scrollable_textarea.full_screen_mode {
+                scrollable_textarea.render(f, f.size());
+            } else {
+                scrollable_textarea.render(f, chunks[1]);
+            }
 
             if title_popup.visible {
                 render_title_popup(f, &title_popup);
@@ -63,7 +180,53 @@ fn main() -> Result<()> {
         })?;
 
         if let Event::Key(key) = event::read()? {
-            if title_popup.visible {
+            if scrollable_textarea.full_screen_mode {
+                match key.code {
+                    KeyCode::Esc => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.edit_mode = false;
+                        } else {
+                            scrollable_textarea.toggle_full_screen();
+                        }
+                    }
+                    KeyCode::Enter => {
+                        if !scrollable_textarea.edit_mode {
+                            scrollable_textarea.edit_mode = true;
+                        } else {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .insert_newline();
+                        }
+                    }
+                    KeyCode::Up => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .move_cursor(tui_textarea::CursorMove::Up);
+                        } else {
+                            scrollable_textarea.scroll =
+                                scrollable_textarea.scroll.saturating_sub(1);
+                        }
+                    }
+                    KeyCode::Down => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .move_cursor(tui_textarea::CursorMove::Down);
+                        } else {
+                            scrollable_textarea.scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
+                            eprintln!("Failed to copy to clipboard: {}", e);
+                        }
+                    }
+                    _ => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .input(key);
+                        }
+                    }
+                }
+            } else if title_popup.visible {
                 match key.code {
                     KeyCode::Enter => {
                         scrollable_textarea.change_title(title_popup.title.clone());
@@ -106,16 +269,19 @@ fn main() -> Result<()> {
             } else {
                 match key.code {
                     KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Err(e) = scrollable_textarea.copy_textarea_contents() {
+                        if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
                             eprintln!("Failed to copy to clipboard: {}", e);
                         }
                     }
-                    KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        scrollable_textarea.toggle_full_screen();
+                    }
+                    KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         title_select_popup.titles = scrollable_textarea.titles.clone();
                         title_select_popup.selected_index = 0;
                         title_select_popup.visible = true;
                     }
-                    KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    KeyCode::Char('q') => {
                         save_textareas(
                             &scrollable_textarea.textareas,
                             &scrollable_textarea.titles,
@@ -123,10 +289,8 @@ fn main() -> Result<()> {
                         break;
                     }
                     KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        let new_textarea = TextArea::default();
                         scrollable_textarea
-                            .add_textarea(new_textarea, String::from("New Textarea"));
-                        scrollable_textarea.focused_index = scrollable_textarea.textareas.len() - 1;
+                            .add_textarea(TextArea::default(), String::from("New Textarea"));
                         scrollable_textarea.adjust_scroll_to_focused();
                     }
                     KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -190,8 +354,16 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
     let mut file = File::create(SAVE_FILE)?;
     for (textarea, title) in textareas.iter().zip(titles.iter()) {
         writeln!(file, "# {}", title)?;
+        let mut in_code_block = false;
         for line in textarea.lines() {
-            writeln!(file, "{}", line)?;
+            if line.trim().starts_with("```") {
+                in_code_block = !in_code_block;
+            }
+            if in_code_block || !line.starts_with('#') {
+                writeln!(file, "{}", line)?;
+            } else {
+                writeln!(file, "\\{}", line)?;
+            }
         }
         writeln!(file)?;
     }
@@ -205,19 +377,36 @@ fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
     let mut titles = Vec::with_capacity(10);
     let mut current_textarea = TextArea::default();
     let mut current_title = String::new();
+    let mut in_code_block = false;
+    let mut is_first_line = true;
 
     for line in reader.lines() {
         let line = line?;
-        if line.starts_with("# ") {
-            if !current_title.is_empty() {
-                textareas.push(current_textarea);
-                titles.push(current_title);
-                current_textarea = TextArea::default();
-            }
+        if !in_code_block && line.starts_with("# ") && is_first_line {
             current_title = line[2..].to_string();
+            is_first_line = false;
         } else {
-            current_textarea.insert_str(&line);
+            if line.trim().starts_with("```") {
+                in_code_block = !in_code_block;
+            }
+            if in_code_block {
+                current_textarea.insert_str(&line);
+            } else if line.starts_with('\\') {
+                current_textarea.insert_str(&line[1..]);
+            } else if line.starts_with("# ") && !is_first_line {
+                if !current_title.is_empty() {
+                    textareas.push(current_textarea);
+                    titles.push(current_title);
+                }
+                current_textarea = TextArea::default();
+                current_title = line[2..].to_string();
+                is_first_line = true;
+                continue;
+            } else {
+                current_textarea.insert_str(&line);
+            }
             current_textarea.insert_newline();
+            is_first_line = false;
         }
     }
 

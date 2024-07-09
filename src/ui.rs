@@ -3,12 +3,12 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Tabs, Widget},
+    widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
 
 pub fn render_header(f: &mut Frame, area: Rect) {
-    let commands = "Quit: Ctrl+q | Add: Ctrl+n | Delete: Ctrl+d | Edit mode: Enter | Exit edit: Esc | Change Title: Ctrl+t | Copy Block: Ctrl+y | Select Block: Ctrl+j";
+    let commands = "Quit: q | Add: Ctrl+n | Delete: Ctrl+d | Copy: Ctrl+y | Edit: Enter | Focus: Ctrl+f | Exit mode: Esc | Change Title: Ctrl+t | Select Block: Ctrl+s ";
     let thoth = "Thoth";
     let total_length = commands.len() + thoth.len() + 1;
     let remaining_space = area.width as usize - total_length;
@@ -52,7 +52,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
         .map(|(i, title)| {
             if i == popup.selected_index {
                 Line::from(vec![Span::styled(
-                    format!("‚Äö√±‚àÇ {}", title),
+                    format!("> {}", title),
                     Style::default().fg(Color::Yellow),
                 )])
             } else {
