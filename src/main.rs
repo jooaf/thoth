@@ -1,229 +1,459 @@
+use anyhow;
+use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
-    event::{
-        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event, KeyCode, KeyModifiers,
-    },
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Position, Rect, Size},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Tabs, Widget},
     Frame, Terminal,
 };
-use ratatui::{prelude::*, style::palette::tailwind, widgets::*};
-use std::io;
-use tui_scrollview::{ScrollView, ScrollViewState};
+use std::path::Path;
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader, Write},
+};
 use tui_textarea::TextArea;
 
-struct TitlePopup {
-    visible: bool,
-    title: String,
+const SAVE_FILE: &str = "thoth_notes.md";
+const ORANGE: Color = Color::Rgb(255, 165, 0);
+
+struct ScrollableTextArea {
+    textareas: Vec<TextArea<'static>>,
+    titles: Vec<String>,
+    scroll: usize,
+    focused_index: usize,
+    edit_mode: bool,
+    viewport_height: u16,
 }
 
-impl Default for TitlePopup {
-    fn default() -> Self {
-        TitlePopup {
+struct TitlePopup {
+    title: String,
+    visible: bool,
+}
+
+struct TitleSelectPopup {
+    titles: Vec<String>,
+    selected_index: usize,
+    visible: bool,
+}
+
+impl TitleSelectPopup {
+    fn new() -> Self {
+        TitleSelectPopup {
+            titles: Vec::new(),
+            selected_index: 0,
             visible: false,
-            title: String::new(),
         }
     }
 }
 
+impl TitlePopup {
+    fn new() -> Self {
+        TitlePopup {
+            title: String::new(),
+            visible: false,
+        }
+    }
+}
+
+impl ScrollableTextArea {
+    fn new() -> Self {
+        ScrollableTextArea {
+            textareas: vec![],
+            titles: vec![],
+            scroll: 0,
+            focused_index: 0,
+            edit_mode: false,
+            viewport_height: 0,
+        }
+    }
+
+    fn add_textarea(&mut self, textarea: TextArea<'static>, title: String) {
+        self.textareas.push(textarea);
+        self.titles.push(title);
+        self.focused_index = self.textareas.len() - 1;
+        // Adjust scroll to show the new textarea
+        self.adjust_scroll_to_focused();
+    }
+
+    fn copy_textarea_contents(&self) -> anyhow::Result<()> {
+        if let Some(textarea) = self.textareas.get(self.focused_index) {
+            let content = textarea.lines().join("\n");
+            let mut ctx = ClipboardContext::new().unwrap();
+            ctx.set_contents(content).unwrap();
+        }
+        Ok(())
+    }
+
+    // Add this new method to jump to a specific textarea
+    fn jump_to_textarea(&mut self, index: usize) {
+        if index < self.textareas.len() {
+            self.focused_index = index;
+            self.adjust_scroll_to_focused();
+        }
+    }
+
+    fn remove_textarea(&mut self, index: usize) {
+        if index < self.textareas.len() {
+            self.textareas.remove(index);
+            self.titles.remove(index);
+            if self.focused_index >= self.textareas.len() {
+                self.focused_index = self.textareas.len().saturating_sub(1);
+            }
+            self.scroll = self.scroll.min(self.focused_index);
+        }
+    }
+
+    fn move_focus(&mut self, direction: isize) {
+        let new_index = (self.focused_index as isize + direction).max(0) as usize;
+        if new_index < self.textareas.len() {
+            self.focused_index = new_index;
+            self.adjust_scroll_to_focused();
+        }
+    }
+
+    fn adjust_scroll_to_focused(&mut self) {
+        if self.focused_index < self.scroll {
+            // If the focused textarea is above the current view, scroll up to it
+            self.scroll = self.focused_index;
+        } else {
+            // Calculate the total height of textareas from scroll position to focused index
+            let mut height_sum = 0;
+            for i in self.scroll..=self.focused_index {
+                let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
+                height_sum += textarea_height;
+
+                // If we've exceeded the viewport height, adjust the scroll
+                if height_sum > self.viewport_height {
+                    self.scroll = i;
+                    break;
+                }
+            }
+        }
+
+        // Ensure the focused textarea is fully visible
+        while self.calculate_height_to_focused() > self.viewport_height {
+            self.scroll += 1;
+        }
+    }
+
+    fn calculate_height_to_focused(&self) -> u16 {
+        self.textareas[self.scroll..=self.focused_index]
+            .iter()
+            .map(|ta| ta.lines().len().max(3) as u16 + 2)
+            .sum()
+    }
+
+    fn adjust_scroll(&mut self, viewport_height: u16) {
+        let mut height_sum = 0;
+        let focused_height = self.textareas[self.focused_index].lines().len().max(3) as u16 + 2;
+
+        if self.focused_index < self.scroll {
+            self.scroll = self.focused_index;
+        } else {
+            for i in self.scroll..=self.focused_index {
+                let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
+                if height_sum + textarea_height > viewport_height {
+                    self.scroll = i;
+                    break;
+                }
+                height_sum += textarea_height;
+            }
+        }
+
+        // Ensure the focused textarea is fully visible
+        while height_sum + focused_height > viewport_height {
+            height_sum -= self.textareas[self.scroll].lines().len().max(3) as u16 + 2;
+            self.scroll += 1;
+        }
+    }
+
+    fn change_title(&mut self, new_title: String) {
+        if self.focused_index < self.titles.len() {
+            self.titles[self.focused_index] = new_title;
+        }
+    }
+    fn initialize_scroll(&mut self) {
+        self.scroll = 0;
+        self.focused_index = 0;
+    }
+    fn render(&mut self, f: &mut Frame, area: Rect) {
+        self.viewport_height = area.height;
+        let mut remaining_height = area.height;
+        let mut visible_textareas = vec![];
+
+        const MAX_HEIGHT: u16 = 10;
+
+        let start_index = self.scroll.saturating_sub(1); // Start from one textarea before the scroll position
+        for (i, textarea) in self.textareas.iter_mut().enumerate().skip(start_index) {
+            if remaining_height == 0 {
+                break;
+            }
+
+            let content_height = textarea.lines().len() as u16 + 2;
+            let is_focused = i == self.focused_index;
+            let is_editing = is_focused && self.edit_mode;
+
+            let height = if is_editing && content_height > MAX_HEIGHT {
+                remaining_height
+            } else {
+                content_height.min(remaining_height).min(MAX_HEIGHT)
+            };
+
+            visible_textareas.push((i, textarea, height));
+            remaining_height = remaining_height.saturating_sub(height);
+
+            if is_editing {
+                break;
+            }
+        }
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(
+                visible_textareas
+                    .iter()
+                    .map(|(_, _, height)| Constraint::Length(*height))
+                    .collect::<Vec<_>>(),
+            )
+            .split(area);
+
+        for ((i, textarea, height), chunk) in visible_textareas.into_iter().zip(chunks.iter()) {
+            let title = &self.titles[i];
+            let is_focused = i == self.focused_index;
+            let is_editing = is_focused && self.edit_mode;
+
+            let style = if is_focused {
+                if is_editing {
+                    Style::default().fg(Color::Black).bg(Color::DarkGray)
+                } else {
+                    Style::default().fg(Color::Black).bg(Color::Gray)
+                }
+            } else {
+                Style::default().fg(Color::White).bg(Color::Reset)
+            };
+
+            let block = Block::default()
+                .title(title.clone())
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ORANGE))
+                .style(style);
+
+            let content_height = textarea.lines().len() as u16;
+            let visible_lines = height.saturating_sub(2); // Subtract 2 for borders
+
+            if content_height > visible_lines && !is_editing {
+                let truncated_content: String = textarea
+                    .lines()
+                    .iter()
+                    .cloned()
+                    .take(visible_lines as usize)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                let truncated_text = format!("{}\n...", truncated_content);
+                let truncated_paragraph = Paragraph::new(truncated_text).block(block);
+                f.render_widget(truncated_paragraph, *chunk);
+            } else {
+                textarea.set_block(block);
+                textarea.set_style(style);
+                if is_editing {
+                    textarea.set_cursor_style(Style::default().fg(Color::White).bg(Color::Black));
+                } else {
+                    textarea.set_cursor_style(style);
+                }
+                f.render_widget(textarea.widget(), *chunk);
+            }
+        }
+    }
+}
+
+// Add this new function to render the title selection popup
+fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
+    let area = centered_rect(60, 60, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let items: Vec<Line> = popup
+        .titles
+        .iter()
+        .enumerate()
+        .map(|(i, title)| {
+            if i == popup.selected_index {
+                Line::from(vec![Span::styled(
+                    format!("▶ {}", title),
+                    Style::default().fg(Color::Yellow),
+                )])
+            } else {
+                Line::from(vec![Span::raw(format!("  {}", title))])
+            }
+        })
+        .collect();
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ORANGE))
+        .title("Select Title");
+
+    let paragraph = Paragraph::new(items)
+        .block(block)
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(paragraph, area);
+}
+
 fn main() -> Result<(), io::Error> {
     enable_raw_mode()?;
-    let mut title_popup = TitlePopup::default();
     let mut stdout = io::stdout();
-    execute!(
-        stdout,
-        EnterAlternateScreen,
-        EnableMouseCapture,
-        EnableBracketedPaste
-    )?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut textareas: Vec<TextArea> = vec![];
-    let mut focused_index = 0;
-    let mut edit_mode = false;
-    let mut scroll_view_state = ScrollViewState::default();
+    let mut scrollable_textarea = ScrollableTextArea::new();
+    let mut title_popup = TitlePopup::new();
+
+    if Path::new(SAVE_FILE).exists() {
+        let (loaded_textareas, loaded_titles) = load_textareas()?;
+        for (textarea, title) in loaded_textareas.into_iter().zip(loaded_titles) {
+            scrollable_textarea.add_textarea(textarea, title);
+        }
+    } else {
+        scrollable_textarea.add_textarea(TextArea::default(), String::from("New Textarea"));
+    }
+
+    scrollable_textarea.initialize_scroll();
+    let mut title_select_popup = TitleSelectPopup::new();
 
     loop {
         terminal.draw(|f| {
-            let palette = tailwind::ORANGE;
-            let fg = palette.c900;
-            let bg = palette.c300;
-            let keys_fg = palette.c50;
-            let keys_bg = palette.c600;
-            let header = Line::from(vec![
-                "Thoth ".into(),
-                "  ↑ | ↓ | Add: Ctrl+a | Delete: Ctrl+d | Quit: Ctrl+e | Edit: Enter "
-                    .fg(keys_fg)
-                    .bg(keys_bg),
-            ])
-            .style((fg, bg));
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(1)].as_ref())
+                .split(f.size());
 
-            let size = f.size();
-            let header_height = 1;
-            let viewport = Rect::new(
-                0,
-                header_height,
-                size.width,
-                size.height - header_height - 1,
-            );
+            render_header(f, chunks[0]);
+            scrollable_textarea.render(f, chunks[1]);
 
             if title_popup.visible {
-                let popup_width = 30;
-                let popup_height = 3;
-                let popup_x = (size.width - popup_width) / 2;
-                let popup_y = (size.height - popup_height) / 2;
-                let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
-
-                let popup = Block::default().title("Edit Title").borders(Borders::ALL);
-                f.render_widget(popup, popup_area);
-
-                let input_area = popup_area.inner(&Margin::new(1, 1));
-                let input = Paragraph::new(title_popup.title.clone())
-                    .style(Style::default().fg(Color::White))
-                    .block(Block::default());
-                f.render_widget(input, input_area);
+                render_title_popup(f, &title_popup);
+            } else if title_select_popup.visible {
+                render_title_select_popup(f, &title_select_popup);
             }
-
-            f.render_widget(header, Rect::new(0, 0, size.width, header_height));
-
-            let content_height = textareas
-                .iter()
-                .map(|textarea| textarea.lines().len() as u16 + 2)
-                .sum();
-            let scroll_view_size = Size::new(viewport.width, content_height);
-
-            let mut scroll_view = ScrollView::new(scroll_view_size);
-            render_textareas(
-                &mut textareas,
-                &mut scroll_view.buf_mut(),
-                focused_index,
-                edit_mode,
-            );
-
-            f.render_stateful_widget(scroll_view, viewport, &mut scroll_view_state);
-
-            let footer = Line::from(vec!["Normal: Esc | Change Title: Ctrl+c  "
-                .fg(keys_fg)
-                .bg(keys_bg)])
-            .style((fg, keys_bg));
-            f.render_widget(footer, Rect::new(0, size.height - 1, size.width, 1));
         })?;
 
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('a') => {
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
-                        if !edit_mode {
-                            let new_textarea = TextArea::default();
-                            textareas.push(new_textarea);
-                        }
-                    } else {
-                        textareas[focused_index].input(key);
+            if title_popup.visible {
+                match key.code {
+                    KeyCode::Enter => {
+                        scrollable_textarea.change_title(title_popup.title.clone());
+                        title_popup.visible = false;
+                        title_popup.title.clear();
                     }
-                }
-                KeyCode::Char('d') => {
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
-                        if !edit_mode {
-                            textareas.pop();
-                        }
-                    } else {
-                        textareas[focused_index].input(key);
+                    KeyCode::Esc => {
+                        title_popup.visible = false;
+                        title_popup.title.clear();
                     }
-                }
-                KeyCode::Char('f') => {
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
-                        title_popup.visible = !title_popup.visible;
-                        if !title_popup.visible {
-                            title_popup.title.clear();
-                        }
-                    } else {
-                        textareas[focused_index].input(key);
+                    KeyCode::Char(c) => {
+                        title_popup.title.push(c);
                     }
+                    KeyCode::Backspace => {
+                        title_popup.title.pop();
+                    }
+                    _ => {}
                 }
-                KeyCode::Char('e') => {
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+            } else if title_select_popup.visible {
+                match key.code {
+                    KeyCode::Enter => {
+                        scrollable_textarea.jump_to_textarea(title_select_popup.selected_index);
+                        title_select_popup.visible = false;
+                    }
+                    KeyCode::Esc => {
+                        title_select_popup.visible = false;
+                    }
+                    KeyCode::Up => {
+                        if title_select_popup.selected_index > 0 {
+                            title_select_popup.selected_index -= 1;
+                        }
+                    }
+                    KeyCode::Down => {
+                        if title_select_popup.selected_index < title_select_popup.titles.len() - 1 {
+                            title_select_popup.selected_index += 1;
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                match key.code {
+                    KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        if let Err(e) = scrollable_textarea.copy_textarea_contents() {
+                            eprintln!("Failed to copy to clipboard: {}", e);
+                        }
+                    }
+                    KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        title_select_popup.titles = scrollable_textarea.titles.clone();
+                        title_select_popup.selected_index = 0;
+                        title_select_popup.visible = true;
+                    }
+                    KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        save_textareas(
+                            &scrollable_textarea.textareas,
+                            &scrollable_textarea.titles,
+                        )?;
                         break;
-                    } else {
-                        textareas[focused_index].input(key);
                     }
-                }
-                KeyCode::Enter => {
-                    if !edit_mode {
-                        edit_mode = true;
-                    } else {
-                        textareas[focused_index].insert_newline();
+                    KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let new_textarea = TextArea::default();
+                        scrollable_textarea
+                            .add_textarea(new_textarea, String::from("New Textarea"));
+                        scrollable_textarea.focused_index = scrollable_textarea.textareas.len() - 1;
+                        scrollable_textarea.adjust_scroll(terminal.size()?.height - 3);
                     }
-                }
-                KeyCode::Esc => {
-                    edit_mode = false;
-                }
-                KeyCode::Up => {
-                    if edit_mode {
-                        textareas[focused_index].move_cursor(tui_textarea::CursorMove::Up);
-                    } else if focused_index > 0 {
-                        focused_index -= 1;
-                        let lines_up: u16 = textareas[..focused_index]
-                            .iter()
-                            .map(|area| area.lines().len() as u16 + 2)
-                            .sum();
-                        let offset = scroll_view_state.offset();
-
-                        scroll_view_state.set_offset(Position::new(offset.x, lines_up))
-                    }
-                }
-                KeyCode::Down => {
-                    if textareas.len() != 0 {
-                        if edit_mode {
-                            textareas[focused_index].move_cursor(tui_textarea::CursorMove::Down);
-                        } else if focused_index < textareas.len() - 1 {
-                            focused_index += 1;
-
-                            let lines_up: u16 = textareas[..focused_index]
-                                .iter()
-                                .map(|area| area.lines().len() as u16 + 2)
-                                .sum();
-                            let offset = scroll_view_state.offset();
-
-                            scroll_view_state.set_offset(Position::new(offset.x, lines_up))
+                    KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        if scrollable_textarea.textareas.len() > 1 {
+                            scrollable_textarea.remove_textarea(scrollable_textarea.focused_index);
                         }
                     }
-                }
-                _ => {
-                    if title_popup.visible {
-                        match key.code {
-                            KeyCode::Enter => {
-                                if let Some(textarea) = textareas.get_mut(focused_index) {
-                                    textarea.set_block(
-                                        Block::default()
-                                            .title(title_popup.title.clone())
-                                            .borders(Borders::ALL),
-                                    );
-                                }
-                                title_popup.visible = false;
-                                title_popup.title.clear();
-                            }
-                            KeyCode::Char(c) => {
-                                title_popup.title.push(c);
-                            }
-                            KeyCode::Backspace => {
-                                title_popup.title.pop();
-                            }
-                            KeyCode::Esc => {
-                                title_popup.visible = false;
-                                title_popup.title.clear();
-                            }
-                            _ => {}
+                    KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        title_popup.visible = true;
+                        title_popup.title =
+                            scrollable_textarea.titles[scrollable_textarea.focused_index].clone();
+                    }
+                    KeyCode::Enter => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .insert_newline();
+                        } else {
+                            scrollable_textarea.edit_mode = true;
                         }
-                    } else if edit_mode {
-                        if let Some(textarea) = textareas.get_mut(focused_index) {
-                            textarea.input(key);
+                    }
+                    KeyCode::Esc => {
+                        scrollable_textarea.edit_mode = false;
+                    }
+                    KeyCode::Up => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .move_cursor(tui_textarea::CursorMove::Up);
+                        } else {
+                            scrollable_textarea.move_focus(-1);
+                        }
+                    }
+                    KeyCode::Down => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .move_cursor(tui_textarea::CursorMove::Down);
+                        } else {
+                            scrollable_textarea.move_focus(1);
+                        }
+                    }
+                    _ => {
+                        if scrollable_textarea.edit_mode {
+                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                .input(key);
                         }
                     }
                 }
@@ -235,65 +465,110 @@ fn main() -> Result<(), io::Error> {
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
-        DisableMouseCapture,
-        DisableBracketedPaste
+        DisableMouseCapture
     )?;
-    terminal.show_cursor()?;
-
     Ok(())
 }
 
-fn render_textareas(
-    textareas: &mut [TextArea],
-    buf: &mut ratatui::buffer::Buffer,
-    focused_index: usize,
-    edit_mode: bool,
-) {
-    let area = buf.area;
-    let chunks = Layout::default()
+fn render_header(f: &mut Frame, area: Rect) {
+    let commands = "Quit: Ctrl+q | Add: Ctrl+n | Delete: Ctrl+d | Edit mode: Enter | Exit edit: Esc | Change Title: Ctrl+t | Copy Block: Ctrl+y | Select Block: Ctrl+j";
+    let thoth = "Thoth";
+    let total_length = commands.len() + thoth.len() + 1;
+    let remaining_space = area.width as usize - total_length;
+
+    let header = Line::from(vec![
+        Span::styled(commands, Style::default().fg(ORANGE)),
+        Span::styled(" ".repeat(remaining_space), Style::default().fg(ORANGE)),
+        Span::styled(thoth, Style::default().fg(ORANGE)),
+    ]);
+
+    let tabs = Tabs::new(vec![header])
+        .style(Style::default().bg(Color::Black))
+        .divider(Span::styled("|", Style::default().fg(ORANGE)));
+
+    f.render_widget(tabs, area);
+}
+
+fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
+    let area = centered_rect(20, 20, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let text = Paragraph::new(popup.title.as_str())
+        .style(Style::default().bg(Color::DarkGray))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ORANGE))
+                .title("Change Title"),
+        );
+    f.render_widget(text, area);
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(
-            textareas
-                .iter()
-                .map(|textarea| Constraint::Length(textarea.lines().len() as u16 + 2))
-                .collect::<Vec<_>>(),
+            [
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ]
+            .as_ref(),
         )
-        .split(area);
+        .split(r);
 
-    for (i, (textarea, chunk)) in textareas.iter_mut().zip(chunks.iter()).enumerate() {
-        let mut block = Block::default()
-            .title(format!("Textarea {}", i + 1))
-            .borders(Borders::ALL);
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
+}
 
-        if i == focused_index {
-            block = block.style(Style::default().fg(Color::Black).bg(Color::Yellow));
-            textarea.set_style(Style::default().fg(Color::Black).bg(Color::Yellow));
-            textarea.set_cursor_line_style(Style::default().fg(Color::Black).bg(Color::Yellow));
-            textarea.set_cursor_style(Style::default().fg(Color::Black).bg(Color::White));
+fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
+    let mut file = File::create(SAVE_FILE)?;
+    for (textarea, title) in textareas.iter().zip(titles.iter()) {
+        writeln!(file, "# {}", title)?;
+        for line in textarea.lines() {
+            writeln!(file, "{}", line)?;
+        }
+        writeln!(file)?;
+    }
+    Ok(())
+}
+
+fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
+    let file = File::open(SAVE_FILE)?;
+    let reader = BufReader::new(file);
+    let mut textareas = Vec::new();
+    let mut titles = Vec::new();
+    let mut current_textarea = TextArea::default();
+    let mut current_title = String::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("# ") {
+            if !current_title.is_empty() {
+                textareas.push(current_textarea);
+                titles.push(current_title);
+                current_textarea = TextArea::default();
+            }
+            current_title = line[2..].to_string();
         } else {
-            block = block.style(Style::default().fg(Color::Gray).bg(Color::Black));
-            textarea.set_style(Style::default().fg(Color::Gray).bg(Color::Black));
-            textarea.set_cursor_style(Style::default().fg(Color::Gray).bg(Color::Black));
-        }
-
-        textarea.set_block(block);
-        let chunk = chunk.intersection(Rect {
-            width: area.width,
-            ..*chunk
-        });
-        let widget = textarea.widget();
-        Widget::render(widget, chunk, buf);
-    }
-
-    if let Some(textarea) = textareas.get_mut(focused_index) {
-        if edit_mode {
-            textarea.set_cursor_line_style(Style::default().fg(Color::Black).bg(Color::Yellow));
-            textarea.set_cursor_style(
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::White)
-                    .add_modifier(Modifier::SLOW_BLINK),
-            );
+            current_textarea.insert_str(&line);
+            current_textarea.insert_newline();
         }
     }
+
+    if !current_title.is_empty() {
+        textareas.push(current_textarea);
+        titles.push(current_title);
+    }
+
+    Ok((textareas, titles))
 }
