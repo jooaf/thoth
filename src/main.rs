@@ -1,285 +1,23 @@
-use anyhow;
+use anyhow::Result;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Tabs, Widget},
-    Frame, Terminal,
-};
-use std::path::Path;
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Write},
+    path::Path,
+};
+use thoth::{
+    ui::{render_header, render_title_popup, render_title_select_popup},
+    ScrollableTextArea, TitlePopup, TitleSelectPopup, SAVE_FILE,
 };
 use tui_textarea::TextArea;
 
-const SAVE_FILE: &str = "thoth_notes.md";
-const ORANGE: Color = Color::Rgb(255, 165, 0);
-
-struct ScrollableTextArea {
-    textareas: Vec<TextArea<'static>>,
-    titles: Vec<String>,
-    scroll: usize,
-    focused_index: usize,
-    edit_mode: bool,
-    viewport_height: u16,
-}
-
-struct TitlePopup {
-    title: String,
-    visible: bool,
-}
-
-struct TitleSelectPopup {
-    titles: Vec<String>,
-    selected_index: usize,
-    visible: bool,
-}
-
-impl TitleSelectPopup {
-    fn new() -> Self {
-        TitleSelectPopup {
-            titles: Vec::new(),
-            selected_index: 0,
-            visible: false,
-        }
-    }
-}
-
-impl TitlePopup {
-    fn new() -> Self {
-        TitlePopup {
-            title: String::new(),
-            visible: false,
-        }
-    }
-}
-
-impl ScrollableTextArea {
-    fn new() -> Self {
-        ScrollableTextArea {
-            textareas: Vec::with_capacity(10), // Pre-allocate space for 10 textareas
-            titles: Vec::with_capacity(10),
-            scroll: 0,
-            focused_index: 0,
-            edit_mode: false,
-            viewport_height: 0,
-        }
-    }
-
-    fn add_textarea(&mut self, textarea: TextArea<'static>, title: String) {
-        self.textareas.push(textarea);
-        self.titles.push(title);
-        self.focused_index = self.textareas.len() - 1;
-        self.adjust_scroll_to_focused();
-    }
-
-    fn copy_textarea_contents(&self) -> anyhow::Result<()> {
-        if let Some(textarea) = self.textareas.get(self.focused_index) {
-            let content = textarea.lines().join("\n");
-            let mut ctx = ClipboardContext::new().unwrap();
-            ctx.set_contents(content).unwrap();
-        }
-        Ok(())
-    }
-
-    fn jump_to_textarea(&mut self, index: usize) {
-        if index < self.textareas.len() {
-            self.focused_index = index;
-            self.adjust_scroll_to_focused();
-        }
-    }
-
-    fn remove_textarea(&mut self, index: usize) {
-        if index < self.textareas.len() {
-            self.textareas.remove(index);
-            self.titles.remove(index);
-            if self.focused_index >= self.textareas.len() {
-                self.focused_index = self.textareas.len().saturating_sub(1);
-            }
-            self.scroll = self.scroll.min(self.focused_index);
-        }
-    }
-
-    fn move_focus(&mut self, direction: isize) {
-        let new_index = (self.focused_index as isize + direction).max(0) as usize;
-        if new_index < self.textareas.len() {
-            self.focused_index = new_index;
-            self.adjust_scroll_to_focused();
-        }
-    }
-
-    fn adjust_scroll_to_focused(&mut self) {
-        if self.focused_index < self.scroll {
-            self.scroll = self.focused_index;
-        } else {
-            let mut height_sum = 0;
-            for i in self.scroll..=self.focused_index {
-                let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
-                height_sum += textarea_height;
-
-                if height_sum > self.viewport_height {
-                    self.scroll = i;
-                    break;
-                }
-            }
-        }
-
-        while self.calculate_height_to_focused() > self.viewport_height
-            && self.scroll < self.focused_index
-        {
-            self.scroll += 1;
-        }
-    }
-
-    fn calculate_height_to_focused(&self) -> u16 {
-        self.textareas[self.scroll..=self.focused_index]
-            .iter()
-            .map(|ta| ta.lines().len().max(3) as u16 + 2)
-            .sum()
-    }
-
-    fn change_title(&mut self, new_title: String) {
-        if self.focused_index < self.titles.len() {
-            self.titles[self.focused_index] = new_title;
-        }
-    }
-
-    fn initialize_scroll(&mut self) {
-        self.scroll = 0;
-        self.focused_index = 0;
-    }
-
-    fn render(&mut self, f: &mut Frame, area: Rect) {
-        self.viewport_height = area.height;
-        let mut remaining_height = area.height;
-        let mut visible_textareas = Vec::with_capacity(self.textareas.len());
-
-        const MAX_HEIGHT: u16 = 10;
-
-        for (i, textarea) in self.textareas.iter_mut().enumerate().skip(self.scroll) {
-            if remaining_height == 0 {
-                break;
-            }
-
-            let content_height = textarea.lines().len() as u16 + 2;
-            let is_focused = i == self.focused_index;
-            let is_editing = is_focused && self.edit_mode;
-
-            let height = if is_editing && content_height > MAX_HEIGHT {
-                remaining_height
-            } else {
-                content_height.min(remaining_height).min(MAX_HEIGHT)
-            };
-
-            visible_textareas.push((i, textarea, height));
-            remaining_height = remaining_height.saturating_sub(height);
-
-            if is_editing {
-                break;
-            }
-        }
-
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                visible_textareas
-                    .iter()
-                    .map(|(_, _, height)| Constraint::Length(*height))
-                    .collect::<Vec<_>>(),
-            )
-            .split(area);
-
-        for ((i, textarea, height), chunk) in visible_textareas.into_iter().zip(chunks.iter()) {
-            let title = &self.titles[i];
-            let is_focused = i == self.focused_index;
-            let is_editing = is_focused && self.edit_mode;
-
-            let style = if is_focused {
-                if is_editing {
-                    Style::default().fg(Color::Black).bg(Color::DarkGray)
-                } else {
-                    Style::default().fg(Color::Black).bg(Color::Gray)
-                }
-            } else {
-                Style::default().fg(Color::White).bg(Color::Reset)
-            };
-
-            let block = Block::default()
-                .title(title.clone())
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(ORANGE))
-                .style(style);
-
-            let content_height = textarea.lines().len() as u16;
-            let visible_lines = height.saturating_sub(2);
-
-            if content_height > visible_lines && !is_editing {
-                let truncated_content: String = textarea
-                    .lines()
-                    .iter()
-                    .take(visible_lines as usize)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                let truncated_text = format!("{}\n...", truncated_content);
-                let truncated_paragraph = Paragraph::new(truncated_text).block(block);
-                f.render_widget(truncated_paragraph, *chunk);
-            } else {
-                textarea.set_block(block);
-                textarea.set_style(style);
-                if is_editing {
-                    textarea.set_cursor_style(Style::default().fg(Color::White).bg(Color::Black));
-                } else {
-                    textarea.set_cursor_style(style);
-                }
-                f.render_widget(textarea.widget(), *chunk);
-            }
-        }
-    }
-}
-
-fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
-    let area = centered_rect(60, 60, f.size());
-    f.render_widget(ratatui::widgets::Clear, area);
-
-    let items: Vec<Line> = popup
-        .titles
-        .iter()
-        .enumerate()
-        .map(|(i, title)| {
-            if i == popup.selected_index {
-                Line::from(vec![Span::styled(
-                    format!("‚ñ∂ {}", title),
-                    Style::default().fg(Color::Yellow),
-                )])
-            } else {
-                Line::from(vec![Span::raw(format!("  {}", title))])
-            }
-        })
-        .collect();
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(ORANGE))
-        .title("Select Title");
-
-    let paragraph = Paragraph::new(items)
-        .block(block)
-        .wrap(ratatui::widgets::Wrap { trim: true });
-
-    f.render_widget(paragraph, area);
-}
-
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -303,9 +41,15 @@ fn main() -> Result<(), io::Error> {
 
     loop {
         terminal.draw(|f| {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(1)].as_ref())
+            let chunks = ratatui::layout::Layout::default()
+                .direction(ratatui::layout::Direction::Vertical)
+                .constraints(
+                    [
+                        ratatui::layout::Constraint::Length(1),
+                        ratatui::layout::Constraint::Min(1),
+                    ]
+                    .as_ref(),
+                )
                 .split(f.size());
 
             render_header(f, chunks[0]);
@@ -440,66 +184,6 @@ fn main() -> Result<(), io::Error> {
         DisableMouseCapture
     )?;
     Ok(())
-}
-
-fn render_header(f: &mut Frame, area: Rect) {
-    let commands = "Quit: Ctrl+q | Add: Ctrl+n | Delete: Ctrl+d | Edit mode: Enter | Exit edit: Esc | Change Title: Ctrl+t | Copy Block: Ctrl+y | Select Block: Ctrl+j";
-    let thoth = "Thoth";
-    let total_length = commands.len() + thoth.len() + 1;
-    let remaining_space = area.width as usize - total_length;
-
-    let header = Line::from(vec![
-        Span::styled(commands, Style::default().fg(ORANGE)),
-        Span::styled(" ".repeat(remaining_space), Style::default().fg(ORANGE)),
-        Span::styled(thoth, Style::default().fg(ORANGE)),
-    ]);
-
-    let tabs = Tabs::new(vec![header])
-        .style(Style::default().bg(Color::Black))
-        .divider(Span::styled("|", Style::default().fg(ORANGE)));
-
-    f.render_widget(tabs, area);
-}
-
-fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
-    let area = centered_rect(20, 20, f.size());
-    f.render_widget(ratatui::widgets::Clear, area);
-
-    let text = Paragraph::new(popup.title.as_str())
-        .style(Style::default().bg(Color::DarkGray))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(ORANGE))
-                .title("Change Title"),
-        );
-    f.render_widget(text, area);
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
-            ]
-            .as_ref(),
-        )
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
-            ]
-            .as_ref(),
-        )
-        .split(popup_layout[1])[1]
 }
 
 fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
