@@ -65,8 +65,8 @@ impl TitlePopup {
 impl ScrollableTextArea {
     fn new() -> Self {
         ScrollableTextArea {
-            textareas: vec![],
-            titles: vec![],
+            textareas: Vec::with_capacity(10), // Pre-allocate space for 10 textareas
+            titles: Vec::with_capacity(10),
             scroll: 0,
             focused_index: 0,
             edit_mode: false,
@@ -78,7 +78,6 @@ impl ScrollableTextArea {
         self.textareas.push(textarea);
         self.titles.push(title);
         self.focused_index = self.textareas.len() - 1;
-        // Adjust scroll to show the new textarea
         self.adjust_scroll_to_focused();
     }
 
@@ -91,7 +90,6 @@ impl ScrollableTextArea {
         Ok(())
     }
 
-    // Add this new method to jump to a specific textarea
     fn jump_to_textarea(&mut self, index: usize) {
         if index < self.textareas.len() {
             self.focused_index = index;
@@ -120,16 +118,13 @@ impl ScrollableTextArea {
 
     fn adjust_scroll_to_focused(&mut self) {
         if self.focused_index < self.scroll {
-            // If the focused textarea is above the current view, scroll up to it
             self.scroll = self.focused_index;
         } else {
-            // Calculate the total height of textareas from scroll position to focused index
             let mut height_sum = 0;
             for i in self.scroll..=self.focused_index {
                 let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
                 height_sum += textarea_height;
 
-                // If we've exceeded the viewport height, adjust the scroll
                 if height_sum > self.viewport_height {
                     self.scroll = i;
                     break;
@@ -137,8 +132,9 @@ impl ScrollableTextArea {
             }
         }
 
-        // Ensure the focused textarea is fully visible
-        while self.calculate_height_to_focused() > self.viewport_height {
+        while self.calculate_height_to_focused() > self.viewport_height
+            && self.scroll < self.focused_index
+        {
             self.scroll += 1;
         }
     }
@@ -150,48 +146,25 @@ impl ScrollableTextArea {
             .sum()
     }
 
-    fn adjust_scroll(&mut self, viewport_height: u16) {
-        let mut height_sum = 0;
-        let focused_height = self.textareas[self.focused_index].lines().len().max(3) as u16 + 2;
-
-        if self.focused_index < self.scroll {
-            self.scroll = self.focused_index;
-        } else {
-            for i in self.scroll..=self.focused_index {
-                let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
-                if height_sum + textarea_height > viewport_height {
-                    self.scroll = i;
-                    break;
-                }
-                height_sum += textarea_height;
-            }
-        }
-
-        // Ensure the focused textarea is fully visible
-        while height_sum + focused_height > viewport_height {
-            height_sum -= self.textareas[self.scroll].lines().len().max(3) as u16 + 2;
-            self.scroll += 1;
-        }
-    }
-
     fn change_title(&mut self, new_title: String) {
         if self.focused_index < self.titles.len() {
             self.titles[self.focused_index] = new_title;
         }
     }
+
     fn initialize_scroll(&mut self) {
         self.scroll = 0;
         self.focused_index = 0;
     }
+
     fn render(&mut self, f: &mut Frame, area: Rect) {
         self.viewport_height = area.height;
         let mut remaining_height = area.height;
-        let mut visible_textareas = vec![];
+        let mut visible_textareas = Vec::with_capacity(self.textareas.len());
 
         const MAX_HEIGHT: u16 = 10;
 
-        let start_index = self.scroll.saturating_sub(1); // Start from one textarea before the scroll position
-        for (i, textarea) in self.textareas.iter_mut().enumerate().skip(start_index) {
+        for (i, textarea) in self.textareas.iter_mut().enumerate().skip(self.scroll) {
             if remaining_height == 0 {
                 break;
             }
@@ -246,14 +219,14 @@ impl ScrollableTextArea {
                 .style(style);
 
             let content_height = textarea.lines().len() as u16;
-            let visible_lines = height.saturating_sub(2); // Subtract 2 for borders
+            let visible_lines = height.saturating_sub(2);
 
             if content_height > visible_lines && !is_editing {
                 let truncated_content: String = textarea
                     .lines()
                     .iter()
-                    .cloned()
                     .take(visible_lines as usize)
+                    .cloned()
                     .collect::<Vec<_>>()
                     .join("\n");
 
@@ -274,7 +247,6 @@ impl ScrollableTextArea {
     }
 }
 
-// Add this new function to render the title selection popup
 fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     let area = centered_rect(60, 60, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
@@ -286,7 +258,7 @@ fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
         .map(|(i, title)| {
             if i == popup.selected_index {
                 Line::from(vec![Span::styled(
-                    format!("▶ {}", title),
+                    format!("‚ñ∂ {}", title),
                     Style::default().fg(Color::Yellow),
                 )])
             } else {
@@ -411,7 +383,7 @@ fn main() -> Result<(), io::Error> {
                         scrollable_textarea
                             .add_textarea(new_textarea, String::from("New Textarea"));
                         scrollable_textarea.focused_index = scrollable_textarea.textareas.len() - 1;
-                        scrollable_textarea.adjust_scroll(terminal.size()?.height - 3);
+                        scrollable_textarea.adjust_scroll_to_focused();
                     }
                     KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         if scrollable_textarea.textareas.len() > 1 {
@@ -545,8 +517,8 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
 fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
     let file = File::open(SAVE_FILE)?;
     let reader = BufReader::new(file);
-    let mut textareas = Vec::new();
-    let mut titles = Vec::new();
+    let mut textareas = Vec::with_capacity(10);
+    let mut titles = Vec::with_capacity(10);
     let mut current_textarea = TextArea::default();
     let mut current_title = String::new();
 
