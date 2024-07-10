@@ -1,3 +1,5 @@
+use std::mem;
+
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
@@ -11,6 +13,12 @@ pub struct MarkdownRenderer {
     theme_set: ThemeSet,
 }
 
+impl Default for MarkdownRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MarkdownRenderer {
     pub fn new() -> Self {
         MarkdownRenderer {
@@ -19,7 +27,7 @@ impl MarkdownRenderer {
         }
     }
 
-    pub fn render_markdown(&self, markdown: String, title: String) -> Text {
+    pub fn render_markdown(&self, markdown: String) -> Text {
         let mut rendered_lines = Vec::new();
         let mut options = Options::empty();
         options.insert(Options::ENABLE_STRIKETHROUGH);
@@ -60,7 +68,7 @@ impl MarkdownRenderer {
                 }
                 Event::End(Tag::Heading(_, _, _)) if !in_code_block => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(mem::take(&mut current_line)));
                     }
                     current_style = Style::default();
                 }
@@ -80,7 +88,7 @@ impl MarkdownRenderer {
                 }
                 Event::SoftBreak | Event::HardBreak => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(mem::take(&mut current_line)));
                     }
                 }
                 Event::Rule => {
@@ -101,7 +109,7 @@ impl MarkdownRenderer {
                 Event::End(Tag::Strong) => {
                     current_style = current_style.remove_modifier(Modifier::BOLD);
                 }
-                Event::Start(Tag::Link(_, url, _)) => {
+                Event::Start(Tag::Link(_, _, _)) => {
                     current_style = current_style
                         .fg(Color::Blue)
                         .add_modifier(Modifier::UNDERLINED);

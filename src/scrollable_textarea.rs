@@ -20,6 +20,12 @@ pub struct ScrollableTextArea {
     markdown_renderer: MarkdownRenderer,
 }
 
+impl Default for ScrollableTextArea {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ScrollableTextArea {
     pub fn new() -> Self {
         ScrollableTextArea {
@@ -234,9 +240,7 @@ impl ScrollableTextArea {
                     f.render_widget(textarea.widget(), *chunk);
                 } else {
                     let content = textarea.lines().join("\n");
-                    let rendered_markdown = self
-                        .markdown_renderer
-                        .render_markdown(content, title.clone());
+                    let rendered_markdown = self.markdown_renderer.render_markdown(content);
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
                         .wrap(Wrap { trim: true });
@@ -256,9 +260,7 @@ impl ScrollableTextArea {
             .border_style(Style::default().fg(ORANGE));
 
         let content = textarea.lines().join("\n");
-        let rendered_markdown = self
-            .markdown_renderer
-            .render_markdown(content, title.clone());
+        let rendered_markdown = self.markdown_renderer.render_markdown(content);
 
         let paragraph = Paragraph::new(rendered_markdown)
             .block(block)

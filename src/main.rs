@@ -54,7 +54,6 @@ fn main() -> Result<()> {
 
 fn add_block(name: &str, content: &str) -> Result<()> {
     let mut file = std::fs::OpenOptions::new()
-        .write(true)
         .append(true)
         .create(true)
         .open(SAVE_FILE)?;
@@ -73,8 +72,9 @@ fn list_blocks() -> Result<()> {
 
     for line in reader.lines() {
         let line = line?;
-        if line.starts_with("# ") {
-            println!("{}", &line[2..]);
+
+        if let Some(strip) = line.strip_prefix("# ") {
+            println!("{}", strip);
         }
     }
 
@@ -90,12 +90,12 @@ fn delete_block(name: &str) -> Result<()> {
 
     for line in reader.lines() {
         let line = line?;
-        if line.starts_with("# ") {
+        if let Some(strip) = line.strip_prefix("# ") {
             if !current_name.is_empty() {
                 blocks.push((current_name, current_block));
                 current_block = Vec::new();
             }
-            current_name = line[2..].to_string();
+            current_name = strip.to_string();
         } else {
             current_block.push(line);
         }
@@ -391,8 +391,8 @@ fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
             }
             if in_code_block {
                 current_textarea.insert_str(&line);
-            } else if line.starts_with('\\') {
-                current_textarea.insert_str(&line[1..]);
+            } else if let Some(strip) = line.strip_prefix('\\') {
+                current_textarea.insert_str(strip);
             } else if line.starts_with("# ") && !is_first_line {
                 if !current_title.is_empty() {
                     textareas.push(current_textarea);

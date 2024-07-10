@@ -14,6 +14,12 @@ impl TitleSelectPopup {
     }
 }
 
+impl Default for TitleSelectPopup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
