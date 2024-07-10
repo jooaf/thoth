@@ -9,11 +9,11 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Write},
-    path::Path,
 };
 use thoth::{
+    get_save_file_path,
     ui::{render_header, render_title_popup, render_title_select_popup},
-    ScrollableTextArea, TitlePopup, TitleSelectPopup, SAVE_FILE,
+    ScrollableTextArea, TitlePopup, TitleSelectPopup,
 };
 use tui_textarea::TextArea;
 
@@ -56,7 +56,7 @@ fn add_block(name: &str, content: &str) -> Result<()> {
     let mut file = std::fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open(SAVE_FILE)?;
+        .open(get_save_file_path())?;
 
     writeln!(file, "# {}", name)?;
     writeln!(file, "{}", content)?;
@@ -67,7 +67,7 @@ fn add_block(name: &str, content: &str) -> Result<()> {
 }
 
 fn list_blocks() -> Result<()> {
-    let file = File::open(SAVE_FILE)?;
+    let file = File::open(get_save_file_path())?;
     let reader = BufReader::new(file);
 
     for line in reader.lines() {
@@ -82,7 +82,7 @@ fn list_blocks() -> Result<()> {
 }
 
 fn delete_block(name: &str) -> Result<()> {
-    let file = File::open(SAVE_FILE)?;
+    let file = File::open(get_save_file_path())?;
     let reader = BufReader::new(file);
     let mut blocks = Vec::new();
     let mut current_block = Vec::new();
@@ -105,7 +105,7 @@ fn delete_block(name: &str) -> Result<()> {
         blocks.push((current_name, current_block));
     }
 
-    let mut file = File::create(SAVE_FILE)?;
+    let mut file = File::create(get_save_file_path())?;
     let mut deleted = false;
 
     for (block_name, block_content) in blocks {
@@ -139,7 +139,7 @@ fn run_ui() -> Result<()> {
     let mut scrollable_textarea = ScrollableTextArea::new();
     let mut title_popup = TitlePopup::new();
 
-    if Path::new(SAVE_FILE).exists() {
+    if get_save_file_path().exists() {
         let (loaded_textareas, loaded_titles) = load_textareas()?;
         for (textarea, title) in loaded_textareas.into_iter().zip(loaded_titles) {
             scrollable_textarea.add_textarea(textarea, title);
@@ -358,7 +358,7 @@ fn run_ui() -> Result<()> {
 }
 
 fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
-    let mut file = File::create(SAVE_FILE)?;
+    let mut file = File::create(get_save_file_path())?;
     for (textarea, title) in textareas.iter().zip(titles.iter()) {
         writeln!(file, "# {}", title)?;
         let mut in_code_block = false;
@@ -378,7 +378,7 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
 }
 
 fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
-    let file = File::open(SAVE_FILE)?;
+    let file = File::open(get_save_file_path())?;
     let reader = BufReader::new(file);
     let mut textareas = Vec::with_capacity(10);
     let mut titles = Vec::with_capacity(10);

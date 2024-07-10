@@ -15,10 +15,7 @@ tui-textarea = "0.4.0"
 copypasta = "0.10.1"
 anyhow = "1.0.86"
 clap = { version = "4.3", features = ["derive"] }
-log = "0.4"
-env_logger = "0.10"
-chrono = "0.4"
-tokio = { version = "1.28", features = ["full"] }
+dirs = "5.0"
 
 [dev-dependencies]
 mockall = "0.11"

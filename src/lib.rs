@@ -9,5 +9,11 @@ pub use scrollable_textarea::ScrollableTextArea;
 pub use title_popup::TitlePopup;
 pub use title_select_popup::TitleSelectPopup;
 
-pub const SAVE_FILE: &str = "thoth_notes.md";
+use dirs::home_dir;
+use std::path::PathBuf;
+
+pub fn get_save_file_path() -> PathBuf {
+    home_dir().unwrap_or_default().join("thoth_notes.md")
+}
+
 pub const ORANGE: ratatui::style::Color = ratatui::style::Color::Rgb(255, 165, 0);
