@@ -1,0 +1,56 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Nushell
+      uses: hustcer/setup-nu@v3
+      with:
+        version: 0.94.1
+
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-rust-dependencies
+      with:
+        path: |
+          ~/.cargo
+          target/
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Run cargo fmt
+      run: nu -c 'cargo fmt --all -- --check'
+
+    - name: Run clippy
+      run: nu -c 'cargo clippy -- -D warnings'
+
+    - name: Run tests
+      run: nu -c 'cargo test --verbose'
+
+    - name: Run integration tests
+      run: nu -c 'cargo test --test integration_tests'
