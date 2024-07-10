@@ -284,11 +284,15 @@ fn run_ui() -> Result<()> {
                         title_select_popup.visible = true;
                     }
                     KeyCode::Char('q') => {
-                        save_textareas(
-                            &scrollable_textarea.textareas,
-                            &scrollable_textarea.titles,
-                        )?;
-                        break;
+                        // allow q in edit mode
+                        if !scrollable_textarea.edit_mode {
+                            save_textareas(
+                                &scrollable_textarea.textareas,
+                                &scrollable_textarea.titles,
+                            )?;
+                            break;
+                        }
+                        scrollable_textarea.textareas[scrollable_textarea.focused_index].input(key);
                     }
                     KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         scrollable_textarea
