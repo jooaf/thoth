@@ -277,7 +277,9 @@ fn run_ui() -> Result<()> {
                         scrollable_textarea.toggle_full_screen();
                     }
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        title_select_popup.titles = scrollable_textarea.titles.clone();
+                        title_select_popup
+                            .titles
+                            .clone_from(&scrollable_textarea.titles);
                         title_select_popup.selected_index = 0;
                         title_select_popup.visible = true;
                     }
@@ -300,8 +302,9 @@ fn run_ui() -> Result<()> {
                     }
                     KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         title_popup.visible = true;
-                        title_popup.title =
-                            scrollable_textarea.titles[scrollable_textarea.focused_index].clone();
+                        title_popup.title.clone_from(
+                            &scrollable_textarea.titles[scrollable_textarea.focused_index],
+                        );
                     }
                     KeyCode::Enter => {
                         if scrollable_textarea.edit_mode {
