@@ -10,5 +10,4 @@ pub use title_popup::TitlePopup;
 pub use title_select_popup::TitleSelectPopup;
 
 pub const SAVE_FILE: &str = "thoth_notes.md";
-pub const EMBEDDED_FILE: &str = include_str!("../thoth_notes.md");
 pub const ORANGE: ratatui::style::Color = ratatui::style::Color::Rgb(255, 165, 0);
