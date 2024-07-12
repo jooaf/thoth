@@ -230,7 +230,9 @@ fn run_ui() -> Result<()> {
             } else if title_popup.visible {
                 match key.code {
                     KeyCode::Enter => {
-                        scrollable_textarea.change_title(title_popup.title.clone());
+                        title_select_popup
+                            .titles
+                            .clone_from(&scrollable_textarea.titles);
                         title_popup.visible = false;
                         title_popup.title.clear();
                     }
@@ -301,8 +303,9 @@ fn run_ui() -> Result<()> {
                     }
                     KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         title_popup.visible = true;
-                        title_popup.title =
-                            scrollable_textarea.titles[scrollable_textarea.focused_index].clone();
+                        title_popup.title.clone_from(
+                            &scrollable_textarea.titles[scrollable_textarea.focused_index],
+                        );
                     }
                     KeyCode::Enter => {
                         if scrollable_textarea.edit_mode {

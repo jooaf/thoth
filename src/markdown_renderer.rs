@@ -45,8 +45,8 @@ impl MarkdownRenderer {
                 Event::Start(Tag::CodeBlock(kind)) => {
                     in_code_block = true;
                     code_block_lang = match kind {
-                        CodeBlockKind::Fenced(lang) => lang.to_string(),
-                        CodeBlockKind::Indented => String::new(),
+                        pulldown_cmark::CodeBlockKind::Fenced(lang) => lang.to_string(),
+                        pulldown_cmark::CodeBlockKind::Indented => String::new(),
                     };
                 }
                 Event::End(Tag::CodeBlock(_)) => {
@@ -59,6 +59,9 @@ impl MarkdownRenderer {
                     code_block_content.push_str(&text);
                 }
                 Event::Start(Tag::Heading(level, _, _)) if !in_code_block => {
+                    if !current_line.is_empty() {
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                    }
                     if level == HeadingLevel::H1 {
                         // Convert H1 to H2 within the content
                         current_style = self.header_style(HeadingLevel::H2);
@@ -68,8 +71,9 @@ impl MarkdownRenderer {
                 }
                 Event::End(Tag::Heading(_, _, _)) if !in_code_block => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(mem::take(&mut current_line)));
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
                     }
+                    rendered_lines.push(Line::default()); // Add an empty line after headers
                     current_style = Style::default();
                 }
                 Event::Start(Tag::List(_)) => {
@@ -77,8 +81,15 @@ impl MarkdownRenderer {
                 }
                 Event::End(Tag::List(_)) => {
                     list_level = (list_level as u64).saturating_sub(1) as usize;
+                    if !current_line.is_empty() {
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                    }
+                    rendered_lines.push(Line::default()); // Add an empty line after lists
                 }
                 Event::Start(Tag::Item) => {
+                    if !current_line.is_empty() {
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                    }
                     let indent = "  ".repeat(list_level - 1);
                     let bullet = format!("{}• ", indent);
                     current_line.push(Span::raw(bullet));
@@ -86,16 +97,23 @@ impl MarkdownRenderer {
                 Event::Text(text) if !in_code_block => {
                     current_line.push(Span::styled(text.to_string(), current_style));
                 }
-                Event::SoftBreak | Event::HardBreak => {
+                Event::SoftBreak => {
+                    current_line.push(Span::raw(" "));
+                }
+                Event::HardBreak => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(mem::take(&mut current_line)));
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
                     }
                 }
                 Event::Rule => {
+                    if !current_line.is_empty() {
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                    }
                     rendered_lines.push(Line::from(Span::styled(
                         "─".repeat(40),
                         Style::default().fg(Color::DarkGray),
                     )));
+                    rendered_lines.push(Line::default()); // Add an empty line after horizontal rules
                 }
                 Event::Start(Tag::Emphasis) => {
                     current_style = current_style.add_modifier(Modifier::ITALIC);
@@ -109,7 +127,7 @@ impl MarkdownRenderer {
                 Event::End(Tag::Strong) => {
                     current_style = current_style.remove_modifier(Modifier::BOLD);
                 }
-                Event::Start(Tag::Link(_, _, _)) => {
+                Event::Start(Tag::Link(_, url, _)) => {
                     current_style = current_style
                         .fg(Color::Blue)
                         .add_modifier(Modifier::UNDERLINED);
@@ -122,6 +140,12 @@ impl MarkdownRenderer {
                         Style::default().fg(Color::DarkGray),
                     ));
                     current_style = Style::default();
+                }
+                Event::End(Tag::Paragraph) => {
+                    if !current_line.is_empty() {
+                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                    }
+                    rendered_lines.push(Line::default()); // Add an empty line after paragraphs
                 }
                 _ => {}
             }
