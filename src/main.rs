@@ -280,7 +280,9 @@ fn run_ui() -> Result<()> {
                         scrollable_textarea.toggle_full_screen();
                     }
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        title_select_popup.titles = scrollable_textarea.titles.clone();
+                        title_select_popup
+                            .titles
+                            .clone_from(&scrollable_textarea.titles);
                         title_select_popup.selected_index = 0;
                         title_select_popup.visible = true;
                     }
