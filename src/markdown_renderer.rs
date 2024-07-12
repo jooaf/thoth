@@ -1,6 +1,4 @@
-use std::mem;
-
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use syntect::easy::HighlightLines;
@@ -127,7 +125,7 @@ impl MarkdownRenderer {
                 Event::End(Tag::Strong) => {
                     current_style = current_style.remove_modifier(Modifier::BOLD);
                 }
-                Event::Start(Tag::Link(_, url, _)) => {
+                Event::Start(Tag::Link(_, _url, _)) => {
                     current_style = current_style
                         .fg(Color::Blue)
                         .add_modifier(Modifier::UNDERLINED);
