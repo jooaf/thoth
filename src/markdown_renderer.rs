@@ -58,7 +58,7 @@ impl MarkdownRenderer {
                 }
                 Event::Start(Tag::Heading(level, _, _)) if !in_code_block => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     if level == HeadingLevel::H1 {
                         // Convert H1 to H2 within the content
@@ -69,7 +69,7 @@ impl MarkdownRenderer {
                 }
                 Event::End(Tag::Heading(_, _, _)) if !in_code_block => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     rendered_lines.push(Line::default()); // Add an empty line after headers
                     current_style = Style::default();
@@ -80,13 +80,13 @@ impl MarkdownRenderer {
                 Event::End(Tag::List(_)) => {
                     list_level = (list_level as u64).saturating_sub(1) as usize;
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     rendered_lines.push(Line::default()); // Add an empty line after lists
                 }
                 Event::Start(Tag::Item) => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     let indent = "  ".repeat(list_level - 1);
                     let bullet = format!("{}• ", indent);
@@ -100,12 +100,12 @@ impl MarkdownRenderer {
                 }
                 Event::HardBreak => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                 }
                 Event::Rule => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     rendered_lines.push(Line::from(Span::styled(
                         "─".repeat(40),
@@ -141,7 +141,7 @@ impl MarkdownRenderer {
                 }
                 Event::End(Tag::Paragraph) => {
                     if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(current_line.drain(..).collect::<Vec<_>>()));
+                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
                     }
                     rendered_lines.push(Line::default()); // Add an empty line after paragraphs
                 }

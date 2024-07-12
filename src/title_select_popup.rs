@@ -29,6 +29,6 @@ mod tests {
         let popup = TitleSelectPopup::new();
         assert!(popup.titles.is_empty());
         assert_eq!(popup.selected_index, 0);
-        assert_eq!(popup.visible, false);
+        assert!(!popup.visible);
     }
 }

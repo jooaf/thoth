@@ -26,6 +26,6 @@ mod tests {
     fn test_new_title_popup() {
         let popup = TitlePopup::new();
         assert_eq!(popup.title, "");
-        assert_eq!(popup.visible, false);
+        assert!(!popup.visible);
     }
 }
