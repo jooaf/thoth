@@ -138,6 +138,7 @@ fn run_ui() -> Result<()> {
 
     let mut scrollable_textarea = ScrollableTextArea::new();
     let mut title_popup = TitlePopup::new();
+    let mut title_select_popup = TitleSelectPopup::new();
 
     if get_save_file_path().exists() {
         let (loaded_textareas, loaded_titles) = load_textareas()?;
@@ -149,10 +150,10 @@ fn run_ui() -> Result<()> {
     }
 
     scrollable_textarea.initialize_scroll();
-    let mut title_select_popup = TitleSelectPopup::new();
 
     loop {
         terminal.draw(|f| {
+            let size = f.size();
             let chunks = ratatui::layout::Layout::default()
                 .direction(ratatui::layout::Direction::Vertical)
                 .constraints(
@@ -162,12 +163,12 @@ fn run_ui() -> Result<()> {
                     ]
                     .as_ref(),
                 )
-                .split(f.size());
+                .split(size);
 
             render_header(f, chunks[0]);
 
             if scrollable_textarea.full_screen_mode {
-                scrollable_textarea.render(f, f.size());
+                scrollable_textarea.render(f, size);
             } else {
                 scrollable_textarea.render(f, chunks[1]);
             }
@@ -277,22 +278,16 @@ fn run_ui() -> Result<()> {
                         scrollable_textarea.toggle_full_screen();
                     }
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        title_select_popup
-                            .titles
-                            .clone_from(&scrollable_textarea.titles);
+                        title_select_popup.titles = scrollable_textarea.titles.clone();
                         title_select_popup.selected_index = 0;
                         title_select_popup.visible = true;
                     }
                     KeyCode::Char('q') => {
-                        // allow q in edit mode
-                        if !scrollable_textarea.edit_mode {
-                            save_textareas(
-                                &scrollable_textarea.textareas,
-                                &scrollable_textarea.titles,
-                            )?;
-                            break;
-                        }
-                        scrollable_textarea.textareas[scrollable_textarea.focused_index].input(key);
+                        save_textareas(
+                            &scrollable_textarea.textareas,
+                            &scrollable_textarea.titles,
+                        )?;
+                        break;
                     }
                     KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         scrollable_textarea
@@ -306,9 +301,8 @@ fn run_ui() -> Result<()> {
                     }
                     KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         title_popup.visible = true;
-                        title_popup.title.clone_from(
-                            &scrollable_textarea.titles[scrollable_textarea.focused_index],
-                        );
+                        title_popup.title =
+                            scrollable_textarea.titles[scrollable_textarea.focused_index].clone();
                     }
                     KeyCode::Enter => {
                         if scrollable_textarea.edit_mode {
@@ -345,15 +339,21 @@ fn run_ui() -> Result<()> {
                     }
                 }
             }
+        } else if let Event::Resize(_, _) = event::read()? {
+            // Terminal was resized, redraw the UI
+            terminal.clear()?;
         }
     }
 
+    // Cleanup
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture
     )?;
+    terminal.show_cursor()?;
+
     Ok(())
 }
 

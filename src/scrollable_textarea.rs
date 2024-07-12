@@ -173,11 +173,8 @@ impl ScrollableTextArea {
                 self.render_full_screen(f, area);
             }
         } else {
-            // Normal mode rendering
             let mut remaining_height = area.height;
             let mut visible_textareas = Vec::with_capacity(self.textareas.len());
-
-            const MAX_HEIGHT: u16 = 10;
 
             for (i, textarea) in self.textareas.iter_mut().enumerate().skip(self.scroll) {
                 if remaining_height == 0 {
@@ -188,10 +185,10 @@ impl ScrollableTextArea {
                 let is_focused = i == self.focused_index;
                 let is_editing = is_focused && self.edit_mode;
 
-                let height = if is_editing && content_height > MAX_HEIGHT {
+                let height = if is_editing {
                     remaining_height
                 } else {
-                    content_height.min(remaining_height).min(MAX_HEIGHT)
+                    content_height.min(remaining_height).max(3)
                 };
 
                 visible_textareas.push((i, textarea, height));

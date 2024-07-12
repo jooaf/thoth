@@ -8,10 +8,15 @@ use ratatui::{
 };
 
 pub fn render_header(f: &mut Frame, area: Rect) {
-    let commands = "Quit: q | Add: Ctrl+n | Delete: Ctrl+d | Copy: Ctrl+y | Edit: Enter | Focus: Ctrl+f | Exit mode: Esc | Change Title: Ctrl+t | Select Block: Ctrl+s ";
+    let available_width = area.width as usize;
+    let commands = if available_width >= 80 {
+        "Q:Quit | ^N:Add | ^D:Del | ^Y:Copy | Enter:Edit | ^F:Focus | Esc:Exit | ^T:Title | ^S:Select"
+    } else {
+        "Q:Quit | ^N:Add | ^D:Del | ^S:Select"
+    };
     let thoth = "Thoth";
     let total_length = commands.len() + thoth.len() + 1;
-    let remaining_space = area.width as usize - total_length;
+    let remaining_space = available_width.saturating_sub(total_length);
 
     let header = Line::from(vec![
         Span::styled(commands, Style::default().fg(ORANGE)),
@@ -27,7 +32,7 @@ pub fn render_header(f: &mut Frame, area: Rect) {
 }
 
 pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
-    let area = centered_rect(20, 20, f.size());
+    let area = centered_rect(60, 20, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
     let text = Paragraph::new(popup.title.as_str())
@@ -42,7 +47,7 @@ pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
 }
 
 pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
-    let area = centered_rect(60, 60, f.size());
+    let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
     let items: Vec<Line> = popup
