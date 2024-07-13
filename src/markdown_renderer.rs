@@ -1,10 +1,56 @@
+use once_cell::sync::Lazy;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
+use std::collections::HashMap;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
+
+static LANGUAGE_ALIASES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("python", "py");
+    m.insert("py", "py");
+    m.insert("javascript", "js");
+    m.insert("js", "js");
+    m.insert("typescript", "ts");
+    m.insert("ts", "ts");
+    m.insert("typescript", "tsx");
+    m.insert("tsx", "tsx");
+    m.insert("csharp", "cs");
+    m.insert("cs", "cs");
+    m.insert("cpp", "cpp");
+    m.insert("c++", "cpp");
+    m.insert("rust", "rs");
+    m.insert("rs", "rs");
+    m.insert("go", "go");
+    m.insert("golang", "go");
+    m.insert("ruby", "rb");
+    m.insert("rb", "rb");
+    m.insert("java", "java");
+    m.insert("kotlin", "kt");
+    m.insert("kt", "kt");
+    m.insert("swift", "swift");
+    m.insert("objectivec", "m");
+    m.insert("objc", "m");
+    m.insert("scala", "scala");
+    m.insert("html", "html");
+    m.insert("css", "css");
+    m.insert("php", "php");
+    m.insert("shell", "sh");
+    m.insert("bash", "sh");
+    m.insert("sh", "sh");
+    m.insert("yaml", "yaml");
+    m.insert("yml", "yaml");
+    m.insert("json", "json");
+    m.insert("xml", "xml");
+    m.insert("sql", "sql");
+    m.insert("markdown", "md");
+    m.insert("md", "md");
+    // Add more languages and their aliases as needed
+    m
+});
 
 pub struct MarkdownRenderer {
     syntax_set: SyntaxSet,
@@ -157,9 +203,14 @@ impl MarkdownRenderer {
     }
 
     fn highlight_code(&self, code: &str, lang: &str) -> Vec<Line> {
+        let extension = LANGUAGE_ALIASES
+            .get(lang.to_lowercase().as_str())
+            .copied()
+            .unwrap_or(lang);
+
         let syntax = self
             .syntax_set
-            .find_syntax_by_extension(lang)
+            .find_syntax_by_extension(extension)
             .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
         let theme = &self.theme_set.themes["base16-ocean.dark"];
         let mut h = HighlightLines::new(syntax, theme);

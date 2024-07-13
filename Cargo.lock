@@ -1370,6 +1370,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "mockall",
+ "once_cell",
  "pulldown-cmark",
  "ratatui",
  "syntect",
