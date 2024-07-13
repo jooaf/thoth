@@ -229,6 +229,7 @@ fn run_ui() -> Result<()> {
             } else if title_popup.visible {
                 match key.code {
                     KeyCode::Enter => {
+                        #[allow(clippy::assigning_clones)]
                         scrollable_textarea.change_title(title_popup.title.clone());
                         title_popup.visible = false;
                         title_popup.title.clear();
@@ -277,6 +278,7 @@ fn run_ui() -> Result<()> {
                         scrollable_textarea.toggle_full_screen();
                     }
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        #[allow(clippy::assigning_clones)]
                         title_select_popup
                             .titles
                             .clone_from(&scrollable_textarea.titles);
@@ -306,6 +308,7 @@ fn run_ui() -> Result<()> {
                     }
                     KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         title_popup.visible = true;
+                        #[allow(clippy::assigning_clones)]
                         title_popup.title.clone_from(
                             &scrollable_textarea.titles[scrollable_textarea.focused_index],
                         );
