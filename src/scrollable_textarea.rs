@@ -17,7 +17,7 @@ pub struct ScrollableTextArea {
     pub edit_mode: bool,
     pub full_screen_mode: bool,
     pub viewport_height: u16,
-    markdown_renderer: MarkdownRenderer,
+    pub markdown_renderer: MarkdownRenderer,
 }
 
 impl Default for ScrollableTextArea {

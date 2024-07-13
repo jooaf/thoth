@@ -956,6 +956,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prettier-please"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22020dfcf177fcc7bf5deaf7440af371400c67c0de14c399938d8ed4fb4645d3"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.70",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1371,6 +1381,7 @@ dependencies = [
  "dirs",
  "mockall",
  "once_cell",
+ "prettier-please",
  "pulldown-cmark",
  "ratatui",
  "syntect",
