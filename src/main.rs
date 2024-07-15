@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -11,7 +12,7 @@ use std::{
     io::{self, BufRead, BufReader, Write},
 };
 use thoth::{
-    get_save_file_path, markdown_renderer,
+    get_save_file_path,
     ui::{render_header, render_title_popup, render_title_select_popup},
     ScrollableTextArea, TitlePopup, TitleSelectPopup,
 };
@@ -150,6 +151,7 @@ fn run_ui() -> Result<()> {
 
     scrollable_textarea.initialize_scroll();
     let mut title_select_popup = TitleSelectPopup::new();
+    let mut clipboard = ClipboardContext::new().expect("Failed to initialize clipboard");
 
     loop {
         terminal.draw(|f| {
@@ -274,6 +276,28 @@ fn run_ui() -> Result<()> {
                             eprintln!("Failed to copy to clipboard: {}", e);
                         }
                     }
+                    KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        match key.modifiers {
+                            KeyModifiers::CONTROL => {
+                                if scrollable_textarea.edit_mode {
+                                    if let Ok(content) = clipboard.get_contents() {
+                                        let textarea = &mut scrollable_textarea.textareas
+                                            [scrollable_textarea.focused_index];
+                                        for line in content.lines() {
+                                            textarea.insert_str(line);
+                                            textarea.insert_newline();
+                                        }
+                                        // Remove the last extra newline
+                                        if content.ends_with('\n') {
+                                            textarea.delete_char();
+                                        }
+                                    }
+                                }
+                            }
+                            KeyModifiers::SUPER | KeyModifiers::HYPER | KeyModifiers::META => {}
+                            _ => {}
+                        }
+                    }
                     KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         scrollable_textarea.toggle_full_screen();
                     }
@@ -379,8 +403,9 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
     let mut file = File::create(get_save_file_path())?;
     for (textarea, title) in textareas.iter().zip(titles.iter()) {
         writeln!(file, "# {}", title)?;
+        let content = textarea.lines().join("\n");
         let mut in_code_block = false;
-        for line in textarea.lines() {
+        for line in content.lines() {
             if line.trim().starts_with("```") {
                 in_code_block = !in_code_block;
             }
@@ -390,6 +415,7 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
                 writeln!(file, "\\{}", line)?;
             }
         }
+        // Add a single blank line between textareas
         writeln!(file)?;
     }
     Ok(())
