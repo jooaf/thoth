@@ -301,20 +301,6 @@ fn run_ui() -> Result<()> {
                     KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         scrollable_textarea.toggle_full_screen();
                     }
-                    KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Some(textarea) = scrollable_textarea
-                            .textareas
-                            .get_mut(scrollable_textarea.focused_index)
-                        {
-                            let content = textarea.lines().join("\n");
-                            let formatted = scrollable_textarea
-                                .markdown_renderer
-                                .format_code_block(&content, "rust");
-                            textarea.select_all();
-                            textarea.delete_str(content.len());
-                            textarea.insert_str(formatted);
-                        }
-                    }
 
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         #[allow(clippy::assigning_clones)]
