@@ -1,25 +1,157 @@
 use crate::{TitlePopup, TitleSelectPopup, ORANGE};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Tabs},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
     Frame,
 };
 
-pub fn render_header(f: &mut Frame, area: Rect) {
+pub struct EditCommandsPopup {
+    pub visible: bool,
+}
+
+impl EditCommandsPopup {
+    pub fn new() -> Self {
+        EditCommandsPopup { visible: false }
+    }
+}
+impl Default for EditCommandsPopup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn render_edit_commands_popup(f: &mut Frame) {
+    let area = centered_rect(80, 80, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ORANGE))
+        .title("Editing Commands");
+
+    let header = Row::new(vec![
+        Cell::from("MAPPINGS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
+        Cell::from("DESCRIPTIONS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
+    ])
+    .height(2);
+
+    let commands: Vec<Row> = vec![
+        Row::new(vec![
+            "Ctrl+H, Backspace",
+            "Delete one character before cursor",
+        ]),
+        Row::new(vec![
+            "Ctrl+D, Delete",
+            "Delete one character next to cursor",
+        ]),
+        Row::new(vec!["Ctrl+M, Enter", "Insert newline"]),
+        Row::new(vec!["Ctrl+K", "Delete from cursor until the end of line"]),
+        Row::new(vec!["Ctrl+J", "Delete from cursor until the head of line"]),
+        Row::new(vec![
+            "Ctrl+W, Alt+H, Alt+Backspace",
+            "Delete one word before cursor",
+        ]),
+        Row::new(vec!["Alt+D, Alt+Delete", "Delete one word next to cursor"]),
+        Row::new(vec!["Ctrl+U", "Undo"]),
+        Row::new(vec!["Ctrl+R", "Redo"]),
+        Row::new(vec!["Ctrl+C, Copy", "Copy selected text"]),
+        Row::new(vec!["Ctrl+X, Cut", "Cut selected text"]),
+        Row::new(vec!["Ctrl+Y, Paste", "Paste yanked text"]),
+        Row::new(vec!["Ctrl+F, →", "Move cursor forward by one character"]),
+        Row::new(vec!["Ctrl+B, ←", "Move cursor backward by one character"]),
+        Row::new(vec!["Ctrl+P, ↑", "Move cursor up by one line"]),
+        Row::new(vec!["Ctrl+N, ↓", "Move cursor down by one line"]),
+        Row::new(vec!["Alt+F, Ctrl+→", "Move cursor forward by word"]),
+        Row::new(vec!["Alt+B, Ctrl+←", "Move cursor backward by word"]),
+        Row::new(vec!["Alt+], Alt+P, Ctrl+↑", "Move cursor up by paragraph"]),
+        Row::new(vec![
+            "Alt+[, Alt+N, Ctrl+↓",
+            "Move cursor down by paragraph",
+        ]),
+        Row::new(vec![
+            "Ctrl+E, End, Ctrl+Alt+F, Ctrl+Alt+→",
+            "Move cursor to the end of line",
+        ]),
+        Row::new(vec![
+            "Ctrl+A, Home, Ctrl+Alt+B, Ctrl+Alt+←",
+            "Move cursor to the head of line",
+        ]),
+        Row::new(vec![
+            "Alt+<, Ctrl+Alt+P, Ctrl+Alt+↑",
+            "Move cursor to top of lines",
+        ]),
+        Row::new(vec![
+            "Alt+>, Ctrl+Alt+N, Ctrl+Alt+↓",
+            "Move cursor to bottom of lines",
+        ]),
+        Row::new(vec!["Ctrl+V, PageDown", "Scroll down by page"]),
+        Row::new(vec!["Alt+V, PageUp", "Scroll up by page"]),
+    ];
+
+    let table = Table::new(commands, [Constraint::Length(5), Constraint::Length(5)])
+        .header(header)
+        .block(block)
+        .widths([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .column_spacing(2)
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .highlight_symbol(">> ");
+
+    f.render_widget(table, area);
+}
+
+pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
     let available_width = area.width as usize;
-    let commands = if available_width >= 80 {
-        "Q:Quit | ^N:Add | ^D:Del | ^Y:Copy | Enter:Edit | ^F:Focus | Esc:Exit | ^T:Title | ^S:Select"
+
+    let normal_commands = vec![
+        "Q:Quit".to_string(),
+        "^N:Add".to_string(),
+        "^D:Del".to_string(),
+        "^Y:Copy".to_string(),
+        "Enter:Edit".to_string(),
+        "^F:Focus".to_string(),
+        "Esc:Exit".to_string(),
+        "^T:Title".to_string(),
+        "^S:Select".to_string(),
+    ];
+
+    let edit_commands = vec![
+        "Esc:Exit Edit".to_string(),
+        "^G:Move Cursor Top".to_string(),
+        "^B:Copy Sel".to_string(),
+        "Shift+↑↓:Sel".to_string(),
+        "^Y:Copy All".to_string(),
+        "^S:Select".to_string(),
+        "^T:Title".to_string(),
+        "^E:Help".to_string(),
+    ];
+
+    let commands = if is_edit_mode {
+        &edit_commands
     } else {
-        "Q:Quit | ^N:Add | ^D:Del | ^S:Select"
+        &normal_commands
     };
-    let thoth = "Thoth";
-    let total_length = commands.len() + thoth.len() + 1;
+
+    let thoth = "Thoth  ";
+    let separator = " | ";
+
+    let mut display_commands: Vec<String> = Vec::new();
+    let mut total_length = thoth.len();
+
+    for cmd in commands {
+        if total_length + cmd.len() + separator.len() > available_width {
+            break;
+        }
+        display_commands.push(cmd.to_owned());
+        total_length += cmd.len() + separator.len();
+    }
+
+    let command_string = display_commands.join(separator);
     let remaining_space = available_width.saturating_sub(total_length);
 
     let header = Line::from(vec![
-        Span::styled(commands, Style::default().fg(ORANGE)),
+        Span::styled(command_string, Style::default().fg(ORANGE)),
         Span::styled(" ".repeat(remaining_space), Style::default().fg(ORANGE)),
         Span::styled(thoth, Style::default().fg(ORANGE)),
     ]);

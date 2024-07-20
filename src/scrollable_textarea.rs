@@ -1,3 +1,5 @@
+use std::cmp::{max, min};
+
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use copypasta::{ClipboardContext, ClipboardProvider};
@@ -17,6 +19,7 @@ pub struct ScrollableTextArea {
     pub edit_mode: bool,
     pub full_screen_mode: bool,
     pub viewport_height: u16,
+    pub start_sel: usize,
     pub markdown_renderer: MarkdownRenderer,
 }
 
@@ -36,6 +39,7 @@ impl ScrollableTextArea {
             edit_mode: false,
             full_screen_mode: false,
             viewport_height: 0,
+            start_sel: 0,
             markdown_renderer: MarkdownRenderer::new(),
         }
     }
@@ -145,6 +149,22 @@ impl ScrollableTextArea {
         Ok(())
     }
 
+    pub fn copy_selection_contents(&mut self) -> anyhow::Result<()> {
+        if let Some(textarea) = self.textareas.get(self.focused_index) {
+            let all_lines = textarea.lines();
+            let (cur_row, _) = textarea.cursor();
+            let min_row = min(cur_row, self.start_sel);
+            let max_row = max(cur_row, self.start_sel);
+
+            let content = all_lines[min_row..max_row].join("\n");
+            let mut ctx = ClipboardContext::new().unwrap();
+            ctx.set_contents(content).unwrap();
+        }
+        // reset selection
+        self.start_sel = 0;
+        Ok(())
+    }
+
     fn render_full_screen_edit(&mut self, f: &mut Frame, area: Rect) {
         let textarea = &mut self.textareas[self.focused_index];
         let title = &self.titles[self.focused_index];
@@ -160,6 +180,7 @@ impl ScrollableTextArea {
         textarea.set_block(block);
         textarea.set_style(edit_style);
         textarea.set_cursor_style(cursor_style);
+        textarea.set_selection_style(Style::default().bg(Color::Red));
         f.render_widget(textarea.widget(), area);
     }
 
@@ -247,8 +268,9 @@ impl ScrollableTextArea {
         }
     }
 
-    fn render_full_screen(&self, f: &mut Frame, area: Rect) {
-        let textarea = &self.textareas[self.focused_index];
+    fn render_full_screen(&mut self, f: &mut Frame, area: Rect) {
+        let textarea = &mut self.textareas[self.focused_index];
+        textarea.set_selection_style(Style::default().bg(Color::Red));
         let title = &self.titles[self.focused_index];
 
         let block = Block::default()
@@ -277,6 +299,7 @@ impl ScrollableTextArea {
             edit_mode: false,
             full_screen_mode: false,
             viewport_height: 0,
+            start_sel: 0,
             markdown_renderer: MarkdownRenderer::new(),
         }
     }
