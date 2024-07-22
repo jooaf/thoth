@@ -7,7 +7,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{backend::CrosstermBackend, buffer, Terminal};
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
