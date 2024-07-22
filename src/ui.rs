@@ -42,15 +42,11 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Ctrl+H, Backspace",
             "Delete one character before cursor",
         ]),
-        Row::new(vec![
-            "Ctrl+D, Delete",
-            "Delete one character next to cursor",
-        ]),
         Row::new(vec!["Ctrl+M, Enter", "Insert newline"]),
         Row::new(vec!["Ctrl+K", "Delete from cursor until the end of line"]),
         Row::new(vec!["Ctrl+J", "Delete from cursor until the head of line"]),
         Row::new(vec![
-            "Ctrl+W, Alt+H, Alt+Backspace",
+            "Ctrl+W, Alt+Backspace",
             "Delete one word before cursor",
         ]),
         Row::new(vec!["Alt+D, Alt+Delete", "Delete one word next to cursor"]),
@@ -58,18 +54,11 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
         Row::new(vec!["Ctrl+R", "Redo"]),
         Row::new(vec!["Ctrl+C, Copy", "Copy selected text"]),
         Row::new(vec!["Ctrl+X, Cut", "Cut selected text"]),
-        Row::new(vec!["Ctrl+Y, Paste", "Paste yanked text"]),
-        Row::new(vec!["Ctrl+F, →", "Move cursor forward by one character"]),
-        Row::new(vec!["Ctrl+B, ←", "Move cursor backward by one character"]),
         Row::new(vec!["Ctrl+P, ↑", "Move cursor up by one line"]),
-        Row::new(vec!["Ctrl+N, ↓", "Move cursor down by one line"]),
-        Row::new(vec!["Alt+F, Ctrl+→", "Move cursor forward by word"]),
-        Row::new(vec!["Alt+B, Ctrl+←", "Move cursor backward by word"]),
-        Row::new(vec!["Alt+], Alt+P, Ctrl+↑", "Move cursor up by paragraph"]),
-        Row::new(vec![
-            "Alt+[, Alt+N, Ctrl+↓",
-            "Move cursor down by paragraph",
-        ]),
+        Row::new(vec!["Ctrl+→", "Move cursor forward by word"]),
+        Row::new(vec!["Ctrl+←", "Move cursor backward by word"]),
+        Row::new(vec!["Ctrl+↑", "Move cursor up by paragraph"]),
+        Row::new(vec!["Ctrl+↓", "Move cursor down by paragraph"]),
         Row::new(vec![
             "Ctrl+E, End, Ctrl+Alt+F, Ctrl+Alt+→",
             "Move cursor to the end of line",
@@ -82,12 +71,6 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Alt+<, Ctrl+Alt+P, Ctrl+Alt+↑",
             "Move cursor to top of lines",
         ]),
-        Row::new(vec![
-            "Alt+>, Ctrl+Alt+N, Ctrl+Alt+↓",
-            "Move cursor to bottom of lines",
-        ]),
-        Row::new(vec!["Ctrl+V, PageDown", "Scroll down by page"]),
-        Row::new(vec!["Alt+V, PageUp", "Scroll up by page"]),
     ];
 
     let table = Table::new(commands, [Constraint::Length(5), Constraint::Length(5)])

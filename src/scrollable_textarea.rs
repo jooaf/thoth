@@ -156,9 +156,11 @@ impl ScrollableTextArea {
             let min_row = min(cur_row, self.start_sel);
             let max_row = max(cur_row, self.start_sel);
 
-            let content = all_lines[min_row..max_row].join("\n");
-            let mut ctx = ClipboardContext::new().unwrap();
-            ctx.set_contents(content).unwrap();
+            if max_row <= all_lines.len() {
+                let content = all_lines[min_row..max_row].join("\n");
+                let mut ctx = ClipboardContext::new().unwrap();
+                ctx.set_contents(content).unwrap();
+            }
         }
         // reset selection
         self.start_sel = 0;
