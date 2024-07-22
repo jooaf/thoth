@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use atty;
 use clap::{Parser, Subcommand};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
@@ -6,10 +7,10 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{backend::CrosstermBackend, buffer, Terminal};
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Write},
 };
 use thoth::{
     get_save_file_path,
@@ -35,7 +36,7 @@ enum Commands {
         /// Name of the block to be added
         name: String,
         /// Contents to be associated with the named block
-        content: String,
+        content: Option<String>,
     },
     /// List all of the blocks within your thoth scratchpad
     List,
@@ -61,7 +62,21 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Add { name, content }) => {
-            add_block(name, content)?;
+            let content = match content {
+                Some(c) => c.to_string(),
+                None => {
+                    let mut buffer = String::new();
+                    if atty::is(atty::Stream::Stdin) {
+                        bail!(format!("Couldn't create '{}' because nothing was passed in. Either pipe in contents or use `thoth add {} <contents>`", name, name));
+                    }
+                    io::stdin().read_to_string(&mut buffer)?;
+                    if buffer.trim().is_empty() {
+                        bail!(format!("Couldn't create '{}' because nothing was passed in. Either pipe in contents or use `thoth add {} <contents>`", name, name));
+                    }
+                    buffer
+                }
+            };
+            add_block(name, &content)?;
         }
         Some(Commands::List) => {
             list_blocks()?;
