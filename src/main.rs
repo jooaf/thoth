@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
@@ -22,7 +22,7 @@ use thoth::{
 use tui_textarea::TextArea;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -30,9 +30,30 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Add { name: String, content: String },
+    /// Add a new block to the scratchpad
+    Add {
+        /// Name of the block to be added
+        name: String,
+        /// Contents to be associated with the named block
+        content: String,
+    },
+    /// List all of the blocks within your thoth scratchpad
     List,
-    Delete { name: String },
+    /// Delete a block by name
+    Delete {
+        /// The name of the block to be deleted
+        name: String,
+    },
+    /// View (STDOUT) the contents of the block by name
+    View {
+        /// The name of the block to be used
+        name: String,
+    },
+    /// Copy the contents of a block to the system clipboard
+    Copy {
+        /// The name of the block to be used
+        name: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -47,6 +68,12 @@ fn main() -> Result<()> {
         }
         Some(Commands::Delete { name }) => {
             delete_block(name)?;
+        }
+        Some(Commands::View { name }) => {
+            view_block(name)?;
+        }
+        Some(Commands::Copy { name }) => {
+            copy_block(name)?;
         }
         None => {
             run_ui()?;
@@ -81,6 +108,94 @@ fn list_blocks() -> Result<()> {
             println!("{}", strip);
         }
     }
+
+    Ok(())
+}
+
+fn view_block(name: &str) -> Result<()> {
+    let file = File::open(get_save_file_path())?;
+    let reader = BufReader::new(file);
+    let mut blocks = Vec::new();
+    let mut current_block = Vec::new();
+    let mut current_name = String::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if let Some(strip) = line.strip_prefix("# ") {
+            if !current_name.is_empty() {
+                blocks.push((current_name, current_block));
+                current_block = Vec::new();
+            }
+            current_name = strip.to_string();
+        } else {
+            current_block.push(line);
+        }
+    }
+
+    if !current_name.is_empty() {
+        blocks.push((current_name, current_block));
+    }
+
+    for (block_name, block_content) in blocks {
+        if block_name == name {
+            for line in block_content {
+                println!("{}", line);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn copy_block(name: &str) -> Result<()> {
+    let file = File::open(get_save_file_path())?;
+    let reader = BufReader::new(file);
+    let mut blocks = Vec::new();
+    let mut current_block = Vec::new();
+    let mut current_name = String::new();
+    let mut matched_name: Option<String> = None;
+
+    for line in reader.lines() {
+        let line = line?;
+        if let Some(strip) = line.strip_prefix("# ") {
+            if !current_name.is_empty() {
+                blocks.push((current_name, current_block));
+                current_block = Vec::new();
+            }
+            current_name = strip.to_string();
+        } else {
+            current_block.push(line);
+        }
+    }
+
+    if !current_name.is_empty() {
+        blocks.push((current_name, current_block));
+    }
+
+    for (block_name, block_content) in blocks {
+        if block_name == name {
+            let result_ctx = ClipboardContext::new();
+
+            if result_ctx.is_err() {
+                bail!("Failed to create clipboard context for copy block");
+            }
+
+            let mut ctx = result_ctx.unwrap();
+
+            let is_success = ctx.set_contents(block_content.join("\n"));
+
+            if is_success.is_err() {
+                bail!(format!(
+                    "Failed to copy contents of block {} to system clipboard",
+                    block_name
+                ));
+            }
+            matched_name = Some(block_name);
+        }
+    }
+    match matched_name {
+        Some(name) => println!("Successfully copied contents from block {}", name),
+        None => println!("Didn't find the block. Please try again. You can use `thoth list` to find the name of all blocks")
+    };
 
     Ok(())
 }
