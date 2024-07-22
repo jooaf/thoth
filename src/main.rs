@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use atty;
 use clap::{Parser, Subcommand};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
