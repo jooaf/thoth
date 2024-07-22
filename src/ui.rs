@@ -107,7 +107,8 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
         "^Y:Copy All".to_string(),
         "^S:Select".to_string(),
         "^T:Title".to_string(),
-        "^E:Help".to_string(),
+        "^E:External Editor".to_string(),
+        "^H:Help".to_string(),
     ];
 
     let commands = if is_edit_mode {

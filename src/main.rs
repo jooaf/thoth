@@ -21,6 +21,11 @@ use thoth::{
 };
 use tui_textarea::TextArea;
 
+use std::env;
+use std::fs;
+use std::process::Command;
+use tempfile::NamedTempFile;
+
 #[derive(Parser)]
 #[command(author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about, long_about = None)]
 struct Cli {
@@ -262,6 +267,35 @@ fn delete_block(name: &str) -> Result<()> {
     Ok(())
 }
 
+fn edit_with_external_editor(content: &str) -> Result<String> {
+    let mut temp_file = NamedTempFile::new()?;
+
+    temp_file.write_all(content.as_bytes())?;
+    temp_file.flush()?;
+
+    let editor = env::var("VISUAL")
+        .or_else(|_| env::var("EDITOR"))
+        .unwrap_or_else(|_| "vi".to_string());
+
+    // suspend the TUI
+    disable_raw_mode()?;
+    execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+
+    let status = Command::new(&editor).arg(temp_file.path()).status()?;
+
+    // resume the TUI
+    enable_raw_mode()?;
+    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+
+    if !status.success() {
+        bail!(format!("Editor '{}' returned non-zero status", editor));
+    }
+
+    let edited_content = fs::read_to_string(temp_file.path())?;
+
+    Ok(edited_content)
+}
+
 fn run_ui() -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -444,12 +478,37 @@ fn run_ui() -> Result<()> {
                 }
             } else {
                 match key.code {
+                    // external editor
+                    KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let current_content = scrollable_textarea.textareas
+                            [scrollable_textarea.focused_index]
+                            .lines()
+                            .join("\n");
+
+                        match edit_with_external_editor(&current_content) {
+                            Ok(edited_content) => {
+                                let mut new_textarea = TextArea::default();
+                                for line in edited_content.lines() {
+                                    new_textarea.insert_str(line);
+                                    new_textarea.insert_newline();
+                                }
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
+                                    new_textarea;
+
+                                // Redraw the terminal after editing
+                                terminal.clear()?;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to edit with external editor: {}", e);
+                            }
+                        }
+                    }
                     KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
                             eprintln!("Failed to copy to clipboard: {}", e);
                         }
                     }
-
+                    // copy highlighted selection
                     KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         if let Err(e) = scrollable_textarea.copy_selection_contents() {
                             eprintln!("Failed to copy to clipboard: {}", e);
@@ -482,13 +541,13 @@ fn run_ui() -> Result<()> {
                             scrollable_textarea.toggle_full_screen();
                         }
                     }
-                    KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    // edit commands
+                    KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         // Toggle the visibility of the edit commands popup
                         if scrollable_textarea.edit_mode {
                             edit_commands_popup.visible = !edit_commands_popup.visible;
                         }
                     }
-
                     KeyCode::Char('s')
                         if key.modifiers.contains(KeyModifiers::CONTROL)
                             && !key.modifiers.contains(KeyModifiers::SHIFT) =>
