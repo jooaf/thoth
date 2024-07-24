@@ -1,63 +1,16 @@
-use once_cell::sync::Lazy;
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span, Text};
-use std::collections::HashMap;
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{FontStyle, ThemeSet};
-use syntect::parsing::SyntaxSet;
-use syntect::util::LinesWithEndings;
+use anyhow::{anyhow, Result};
+use ratatui::{
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
+};
+use syntect::{easy::HighlightLines, parsing::SyntaxSet, util::LinesWithEndings};
+use syntect::{
+    highlighting::{Style as SyntectStyle, ThemeSet},
+    parsing::SyntaxReference,
+};
+// use syntect_tui::into_span;
 
-const CODE_THEME: &str = "base16-eighties.dark";
-
-static LANGUAGE_ALIASES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    m.insert("python", "py");
-    m.insert("py", "py");
-    m.insert("javascript", "js");
-    m.insert("js", "js");
-    m.insert("typescript", "ts");
-    m.insert("ts", "ts");
-    m.insert("typescript", "tsx");
-    m.insert("tsx", "tsx");
-    m.insert("csharp", "cs");
-    m.insert("cs", "cs");
-    m.insert("cpp", "cpp");
-    m.insert("c++", "cpp");
-    m.insert("rust", "rs");
-    m.insert("rs", "rs");
-    m.insert("go", "go");
-    m.insert("golang", "go");
-    m.insert("ruby", "rb");
-    m.insert("rb", "rb");
-    m.insert("java", "java");
-    m.insert("kotlin", "kt");
-    m.insert("kt", "kt");
-    m.insert("swift", "swift");
-    m.insert("objectivec", "m");
-    m.insert("objc", "m");
-    m.insert("scala", "scala");
-    m.insert("html", "html");
-    m.insert("css", "css");
-    m.insert("php", "php");
-    m.insert("shell", "sh");
-    m.insert("bash", "sh");
-    m.insert("sh", "sh");
-    m.insert("yaml", "yaml");
-    m.insert("yml", "yaml");
-    m.insert("json", "json");
-    m.insert("xml", "xml");
-    m.insert("sql", "sql");
-    m.insert("markdown", "md");
-    m.insert("md", "md");
-    // Add more languages and their aliases as needed
-    m
-});
-
-pub struct MarkdownRenderer {
-    syntax_set: SyntaxSet,
-    theme_set: ThemeSet,
-}
+pub struct MarkdownRenderer;
 
 impl Default for MarkdownRenderer {
     fn default() -> Self {
@@ -65,221 +18,214 @@ impl Default for MarkdownRenderer {
     }
 }
 
-impl MarkdownRenderer {
-    pub fn new() -> Self {
-        MarkdownRenderer {
-            syntax_set: SyntaxSet::load_defaults_newlines(),
-            theme_set: ThemeSet::load_defaults(),
-        }
+fn highlight_code_block(
+    code: &str,
+    syntax: &SyntaxReference,
+    ps: &SyntaxSet,
+    theme: &syntect::highlighting::Theme,
+    add_top_border: bool,
+    width: usize,
+) -> Result<Vec<Line<'static>>> {
+    let mut h = HighlightLines::new(syntax, theme);
+    let mut line_number = 1;
+    let mut result = Vec::new();
+
+    let max_line_num = code.lines().count();
+    let line_num_width = max_line_num.to_string().len();
+
+    // Add top border if needed
+    if add_top_border {
+        result.push(Line::from(Span::styled(
+            "─".repeat(width),
+            Style::default().fg(Color::White),
+        )));
     }
 
-    pub fn render_markdown(&self, markdown: String) -> Text {
-        let mut rendered_lines = Vec::new();
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_STRIKETHROUGH);
+    // Highlight code lines
+    for line in LinesWithEndings::from(code) {
+        let highlighted = h
+            .highlight_line(line, ps)
+            .map_err(|e| anyhow!("Highlight error: {}", e))?;
+        let mut spans = vec![Span::styled(
+            format!("{:>width$} │ ", line_number, width = line_num_width),
+            Style::default().fg(Color::White),
+        )];
+        spans.extend(highlighted.into_iter().map(into_span));
 
-        let parser = Parser::new_ext(&markdown, options);
-        let mut current_line = Vec::new();
+        // Pad the line to full width
+        let line_content: String = spans.iter().map(|span| span.content.clone()).collect();
+        let padding_width = width.saturating_sub(line_content.len());
+        if padding_width > 0 {
+            spans.push(Span::styled(" ".repeat(padding_width), Style::default()));
+        }
+
+        result.push(Line::from(spans));
+        line_number += 1;
+    }
+
+    // Add bottom border
+    result.push(Line::from(Span::styled(
+        "─".repeat(width),
+        Style::default().fg(Color::White),
+    )));
+
+    Ok(result)
+}
+
+fn syntect_style_to_ratatui_style(style: SyntectStyle) -> Style {
+    let mut ratatui_style = Style::default().fg(Color::Rgb(
+        style.foreground.r,
+        style.foreground.g,
+        style.foreground.b,
+    ));
+
+    if style
+        .font_style
+        .contains(syntect::highlighting::FontStyle::BOLD)
+    {
+        ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+    }
+    if style
+        .font_style
+        .contains(syntect::highlighting::FontStyle::ITALIC)
+    {
+        ratatui_style = ratatui_style.add_modifier(Modifier::ITALIC);
+    }
+    if style
+        .font_style
+        .contains(syntect::highlighting::FontStyle::UNDERLINE)
+    {
+        ratatui_style = ratatui_style.add_modifier(Modifier::UNDERLINED);
+    }
+
+    ratatui_style
+}
+
+fn into_span((style, text): (SyntectStyle, &str)) -> Span<'static> {
+    Span::styled(text.to_string(), syntect_style_to_ratatui_style(style))
+}
+
+impl MarkdownRenderer {
+    pub fn new() -> Self {
+        MarkdownRenderer
+    }
+
+    pub fn render_markdown(&self, markdown: String, width: usize) -> Result<Text<'static>> {
+        let ps = SyntaxSet::load_defaults_newlines();
+        let ts = ThemeSet::load_defaults();
+        let md_syntax = ps.find_syntax_by_extension("md").unwrap();
+        let mut lines = Vec::new();
         let mut in_code_block = false;
         let mut code_block_lang = String::new();
         let mut code_block_content = String::new();
-        let mut list_level = 0;
-        let mut current_style = Style::default();
+        let mut is_first_code_block = true;
+        let theme = &ts.themes["base16-mocha.dark"];
+        // TODO make this a config option
+        // Themes: `base16-ocean.dark`,`base16-eighties.dark`,`base16-mocha.dark`,`base16-ocean.light`
+        let mut h = HighlightLines::new(md_syntax, theme);
 
-        for event in parser {
-            match event {
-                Event::Start(Tag::CodeBlock(kind)) => {
-                    in_code_block = true;
-                    code_block_lang = match kind {
-                        pulldown_cmark::CodeBlockKind::Fenced(lang) => lang.to_string(),
-                        pulldown_cmark::CodeBlockKind::Indented => String::new(),
-                    };
-                }
-                Event::End(Tag::CodeBlock(_)) => {
-                    let highlighted = self.highlight_code(&code_block_content, &code_block_lang);
-                    rendered_lines.extend(highlighted);
-                    in_code_block = false;
-                    code_block_content.clear();
-                }
-                Event::Text(text) if in_code_block => {
-                    code_block_content.push_str(&text);
-                }
-                Event::Start(Tag::Heading(level, _, _)) if !in_code_block => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    if level == HeadingLevel::H1 {
-                        // Convert H1 to H2 within the content
-                        current_style = self.header_style(HeadingLevel::H2);
+        for line in markdown.lines() {
+            if line.starts_with("```") {
+                if in_code_block {
+                    // End of code block
+                    if let Some(syntax) = ps.find_syntax_by_token(&code_block_lang) {
+                        lines.extend(highlight_code_block(
+                            &code_block_content,
+                            syntax,
+                            &ps,
+                            theme,
+                            !is_first_code_block,
+                            width,
+                        )?);
                     } else {
-                        current_style = self.header_style(level);
+                        // Fallback to plain text if language not recognized
+                        lines.extend(highlight_code_block(
+                            &code_block_content,
+                            md_syntax,
+                            &ps,
+                            theme,
+                            !is_first_code_block,
+                            width,
+                        )?);
                     }
+                    code_block_content.clear();
+                    in_code_block = false;
+                    is_first_code_block = false;
+                } else {
+                    // Start of code block
+                    in_code_block = true;
+                    code_block_lang = line.trim_start_matches('`').to_string();
                 }
-                Event::End(Tag::Heading(_, _, _)) if !in_code_block => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    rendered_lines.push(Line::default()); // Add an empty line after headers
-                    current_style = Style::default();
+            } else if in_code_block {
+                code_block_content.push_str(line);
+                code_block_content.push('\n');
+            } else {
+                let highlighted = h
+                    .highlight_line(line, &ps)
+                    .map_err(|e| anyhow!("Highlight error: {}", e))?;
+                let mut spans: Vec<Span<'static>> =
+                    highlighted.into_iter().map(into_span).collect();
+
+                // Pad regular Markdown lines to full width
+                let line_content: String = spans.iter().map(|span| span.content.clone()).collect();
+                let padding_width = width.saturating_sub(line_content.len());
+                if padding_width > 0 {
+                    spans.push(Span::styled(" ".repeat(padding_width), Style::default()));
                 }
-                Event::Start(Tag::List(_)) => {
-                    list_level += 1;
-                }
-                Event::End(Tag::List(_)) => {
-                    list_level = (list_level as u64).saturating_sub(1) as usize;
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    rendered_lines.push(Line::default()); // Add an empty line after lists
-                }
-                Event::Start(Tag::Item) => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    let indent = "  ".repeat(list_level - 1);
-                    let bullet = format!("{}• ", indent);
-                    current_line.push(Span::raw(bullet));
-                }
-                Event::Text(text) if !in_code_block => {
-                    current_line.push(Span::styled(text.to_string(), current_style));
-                }
-                Event::SoftBreak => {
-                    current_line.push(Span::raw(" "));
-                }
-                Event::HardBreak => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                }
-                Event::Rule => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    rendered_lines.push(Line::from(Span::styled(
-                        "─".repeat(40),
-                        Style::default().fg(Color::DarkGray),
-                    )));
-                    rendered_lines.push(Line::default()); // Add an empty line after horizontal rules
-                }
-                Event::Start(Tag::Emphasis) => {
-                    current_style = current_style.add_modifier(Modifier::ITALIC);
-                }
-                Event::End(Tag::Emphasis) => {
-                    current_style = current_style.remove_modifier(Modifier::ITALIC);
-                }
-                Event::Start(Tag::Strong) => {
-                    current_style = current_style.add_modifier(Modifier::BOLD);
-                }
-                Event::End(Tag::Strong) => {
-                    current_style = current_style.remove_modifier(Modifier::BOLD);
-                }
-                Event::Start(Tag::Link(_, _url, _)) => {
-                    current_style = current_style
-                        .fg(Color::Blue)
-                        .add_modifier(Modifier::UNDERLINED);
-                    current_line.push(Span::styled("[", current_style));
-                }
-                Event::End(Tag::Link(_, url, _)) => {
-                    current_line.push(Span::styled("]", current_style));
-                    current_line.push(Span::styled(
-                        format!("({})", url),
-                        Style::default().fg(Color::DarkGray),
-                    ));
-                    current_style = Style::default();
-                }
-                Event::End(Tag::Paragraph) => {
-                    if !current_line.is_empty() {
-                        rendered_lines.push(Line::from(std::mem::take(&mut current_line)));
-                    }
-                    rendered_lines.push(Line::default()); // Add an empty line after paragraphs
-                }
-                _ => {}
+
+                lines.push(Line::from(spans));
             }
         }
 
-        if !current_line.is_empty() {
-            rendered_lines.push(Line::from(current_line));
-        }
+        Ok(Text::from(lines))
+    }
+}
 
-        Text::from(rendered_lines)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_render_markdown() {
+        let renderer = MarkdownRenderer::new();
+        let markdown = "# Header\n\nThis is **bold** and *italic* text.".to_string();
+        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+
+        assert!(rendered.lines.len() >= 3);
+        assert!(rendered.lines[0]
+            .spans
+            .iter()
+            .any(|span| span.content.contains("Header")));
+        assert!(rendered.lines[2]
+            .spans
+            .iter()
+            .any(|span| span.content.contains("This is")));
+        assert!(rendered.lines[2]
+            .spans
+            .iter()
+            .any(|span| span.content.contains("bold")));
+        assert!(rendered.lines[2]
+            .spans
+            .iter()
+            .any(|span| span.content.contains("italic")));
     }
 
-    fn highlight_code(&self, code: &str, lang: &str) -> Vec<Line> {
-        let extension = LANGUAGE_ALIASES
-            .get(lang.to_lowercase().as_str())
-            .copied()
-            .unwrap_or(lang);
+    #[test]
+    fn test_render_markdown_with_code_block() {
+        let renderer = MarkdownRenderer::new();
+        let markdown = "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```"
+            .to_string();
+        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+        println!("{:?}", rendered);
 
-        let syntax = self
-            .syntax_set
-            .find_syntax_by_extension(extension)
-            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
-        let theme = &self.theme_set.themes[CODE_THEME];
-        let mut h = HighlightLines::new(syntax, theme);
-
-        let mut lines = Vec::new();
-        for (idx, line) in LinesWithEndings::from(code).enumerate() {
-            let highlighted = h.highlight_line(line, &self.syntax_set).unwrap();
-            let mut spans = Vec::new();
-
-            // Add line number
-            spans.push(Span::styled(
-                format!("{:4} ", idx + 1),
-                Style::default().fg(Color::DarkGray),
-            ));
-
-            // Add highlighted code
-            spans.extend(highlighted.iter().map(|(style, text)| {
-                let mut s = Style::default().fg(Color::Rgb(
-                    style.foreground.r,
-                    style.foreground.g,
-                    style.foreground.b,
-                ));
-                if style.font_style.contains(FontStyle::BOLD) {
-                    s = s.add_modifier(Modifier::BOLD);
-                }
-                if style.font_style.contains(FontStyle::ITALIC) {
-                    s = s.add_modifier(Modifier::ITALIC);
-                }
-                if style.font_style.contains(FontStyle::UNDERLINE) {
-                    s = s.add_modifier(Modifier::UNDERLINED);
-                }
-                Span::styled(text.to_string(), s)
-            }));
-
-            lines.push(Line::from(spans));
-        }
-
-        // Add a border around the code block
-        let width = lines.iter().map(|l| l.width()).max().unwrap_or(0);
-        let top_bottom_border = Line::from(Span::styled(
-            "─".repeat(width + 2),
-            Style::default().fg(Color::DarkGray),
-        ));
-        lines.insert(0, top_bottom_border.clone());
-        lines.push(top_bottom_border);
-
-        lines
-    }
-
-    fn header_style(&self, level: HeadingLevel) -> Style {
-        match level {
-            HeadingLevel::H1 => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-            HeadingLevel::H2 => Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD),
-            HeadingLevel::H3 => Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-            HeadingLevel::H4 => Style::default()
-                .fg(Color::Blue)
-                .add_modifier(Modifier::BOLD),
-            HeadingLevel::H5 => Style::default()
-                .fg(Color::Magenta)
-                .add_modifier(Modifier::BOLD),
-            HeadingLevel::H6 => Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        }
+        assert!(rendered.lines.len() > 5);
+        assert!(rendered.lines[0]
+            .spans
+            .iter()
+            .any(|span| span.content.contains("Header")));
+        assert!(rendered
+            .lines
+            .iter()
+            .any(|line| line.spans.iter().any(|span| span.content.contains("main"))));
     }
 }

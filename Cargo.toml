@@ -8,11 +8,12 @@ description = "A terminal scratchpad akin to Heynote"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pulldown-cmark = "0.9.3"
+serde_json = "1.0"
 syntect = "5.1"
-color-eyre = "0.6.3"
-crossterm = { version = "0.27.0", features = ["bracketed-paste"] }
+pulldown-cmark = { version = "0.11.0"}
+pulldown-cmark-to-cmark = "15.0.1"
 ratatui = "0.27.0"
+crossterm = { version = "0.27.0", features = ["bracketed-paste"] }
 tui-textarea = "0.5.1"
 copypasta = "0.10.1"
 anyhow = "1.0.86"
@@ -21,6 +22,7 @@ dirs = "5.0"
 once_cell = "1.8.0"
 atty = "0.2.14"
 tempfile = "3.2"
+syntect-tui = "3.0.2"
 
 [dev-dependencies]
 mockall = "0.11"

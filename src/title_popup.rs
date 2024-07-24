@@ -28,4 +28,18 @@ mod tests {
         assert_eq!(popup.title, "");
         assert!(!popup.visible);
     }
+
+    #[test]
+    fn test_title_popup_visibility() {
+        let mut popup = TitlePopup::new();
+        popup.visible = true;
+        assert!(popup.visible);
+    }
+
+    #[test]
+    fn test_title_popup_set_title() {
+        let mut popup = TitlePopup::new();
+        popup.title = "New Title".to_string();
+        assert_eq!(popup.title, "New Title");
+    }
 }

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
@@ -12,7 +12,7 @@ use std::{
     io::{self, BufRead, BufReader, Read, Write},
 };
 use thoth::{
-    get_save_file_path,
+    format_json, format_markdown, get_save_file_path,
     ui::{
         render_edit_commands_popup, render_header, render_title_popup, render_title_select_popup,
         EditCommandsPopup,
@@ -335,9 +335,12 @@ fn run_ui() -> Result<()> {
 
             render_header(f, chunks[0], scrollable_textarea.edit_mode);
             if scrollable_textarea.full_screen_mode {
-                scrollable_textarea.render(f, f.size());
+                scrollable_textarea
+                    .render(f, f.size())
+                    .context("Failed to render")
+                    .unwrap();
             } else {
-                scrollable_textarea.render(f, chunks[1]);
+                scrollable_textarea.render(f, chunks[1]).unwrap();
             }
 
             if title_popup.visible {
@@ -478,6 +481,46 @@ fn run_ui() -> Result<()> {
                 }
             } else {
                 match key.code {
+                    KeyCode::Char('m') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let current_content = scrollable_textarea.textareas
+                            [scrollable_textarea.focused_index]
+                            .lines()
+                            .join("\n");
+                        match format_markdown(&current_content) {
+                            Ok(formatted) => {
+                                let mut new_textarea = TextArea::default();
+                                for line in formatted.lines() {
+                                    new_textarea.insert_str(line);
+                                    new_textarea.insert_newline();
+                                }
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
+                                    new_textarea;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to format Markdown: {}", e);
+                            }
+                        }
+                    }
+                    KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let current_content = scrollable_textarea.textareas
+                            [scrollable_textarea.focused_index]
+                            .lines()
+                            .join("\n");
+                        match format_json(&current_content) {
+                            Ok(formatted) => {
+                                let mut new_textarea = TextArea::default();
+                                for line in formatted.lines() {
+                                    new_textarea.insert_str(line);
+                                    new_textarea.insert_newline();
+                                }
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
+                                    new_textarea;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to format json: {}", e);
+                            }
+                        }
+                    }
                     // external editor
                     KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         let current_content = scrollable_textarea.textareas

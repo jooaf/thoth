@@ -1,9 +1,11 @@
+pub mod formatter;
 pub mod markdown_renderer;
 pub mod scrollable_textarea;
 pub mod title_popup;
 pub mod title_select_popup;
 pub mod ui;
 
+pub use formatter::{format_json, format_markdown};
 pub use markdown_renderer::MarkdownRenderer;
 pub use scrollable_textarea::ScrollableTextArea;
 pub use title_popup::TitlePopup;

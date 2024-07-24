@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
+use anyhow::Result;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -176,8 +177,8 @@ impl ScrollableTextArea {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(ORANGE));
 
-        let edit_style = Style::default().fg(Color::Black).bg(Color::DarkGray);
-        let cursor_style = Style::default().fg(Color::White).bg(Color::Black);
+        let edit_style = Style::default().fg(Color::White).bg(Color::Black);
+        let cursor_style = Style::default().fg(Color::White).bg(ORANGE);
 
         textarea.set_block(block);
         textarea.set_style(edit_style);
@@ -186,14 +187,14 @@ impl ScrollableTextArea {
         f.render_widget(textarea.widget(), area);
     }
 
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+    pub fn render(&mut self, f: &mut Frame, area: Rect) -> Result<()> {
         self.viewport_height = area.height;
 
         if self.full_screen_mode {
             if self.edit_mode {
                 self.render_full_screen_edit(f, area);
             } else {
-                self.render_full_screen(f, area);
+                self.render_full_screen(f, area)?;
             }
         } else {
             let mut remaining_height = area.height;
@@ -239,9 +240,9 @@ impl ScrollableTextArea {
 
                 let style = if is_focused {
                     if is_editing {
-                        Style::default().fg(Color::Black).bg(Color::DarkGray)
+                        Style::default().fg(Color::White).bg(Color::Black)
                     } else {
-                        Style::default().fg(Color::Black).bg(Color::Gray)
+                        Style::default().fg(Color::Black).bg(Color::DarkGray)
                     }
                 } else {
                     Style::default().fg(Color::White).bg(Color::Reset)
@@ -256,11 +257,13 @@ impl ScrollableTextArea {
                 if is_editing {
                     textarea.set_block(block);
                     textarea.set_style(style);
-                    textarea.set_cursor_style(Style::default().fg(Color::White).bg(Color::Black));
+                    textarea.set_cursor_style(Style::default().fg(Color::White).bg(ORANGE));
                     f.render_widget(textarea.widget(), *chunk);
                 } else {
                     let content = textarea.lines().join("\n");
-                    let rendered_markdown = self.markdown_renderer.render_markdown(content);
+                    let rendered_markdown = self
+                        .markdown_renderer
+                        .render_markdown(content, f.size().width as usize - 2)?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
                         .wrap(Wrap { trim: true });
@@ -268,9 +271,10 @@ impl ScrollableTextArea {
                 }
             }
         }
+        Ok(())
     }
 
-    fn render_full_screen(&mut self, f: &mut Frame, area: Rect) {
+    fn render_full_screen(&mut self, f: &mut Frame, area: Rect) -> Result<()> {
         let textarea = &mut self.textareas[self.focused_index];
         textarea.set_selection_style(Style::default().bg(Color::Red));
         let title = &self.titles[self.focused_index];
@@ -281,7 +285,9 @@ impl ScrollableTextArea {
             .border_style(Style::default().fg(ORANGE));
 
         let content = textarea.lines().join("\n");
-        let rendered_markdown = self.markdown_renderer.render_markdown(content);
+        let rendered_markdown = self
+            .markdown_renderer
+            .render_markdown(content, f.size().width as usize - 2)?;
 
         let paragraph = Paragraph::new(rendered_markdown)
             .block(block)
@@ -289,6 +295,7 @@ impl ScrollableTextArea {
             .scroll((self.scroll as u16, 0));
 
         f.render_widget(paragraph, area);
+        Ok(())
     }
 
     #[cfg(test)]
@@ -350,5 +357,32 @@ mod tests {
             ScrollableTextArea::with_textareas(vec![TextArea::default()], vec!["Test".to_string()]);
         sta.change_title("New Title".to_string());
         assert_eq!(sta.titles[0], "New Title");
+    }
+
+    #[test]
+    fn test_toggle_full_screen() {
+        let mut sta = ScrollableTextArea::new();
+        assert!(!sta.full_screen_mode);
+        sta.toggle_full_screen();
+        assert!(sta.full_screen_mode);
+        assert!(!sta.edit_mode);
+    }
+
+    #[test]
+    fn test_copy_textarea_contents() {
+        let mut sta = ScrollableTextArea::new();
+        let mut textarea = TextArea::default();
+        textarea.insert_str("Test content");
+        sta.add_textarea(textarea, "Test".to_string());
+        assert!(sta.copy_textarea_contents().is_ok());
+    }
+
+    #[test]
+    fn test_jump_to_textarea() {
+        let mut sta = ScrollableTextArea::new();
+        sta.add_textarea(TextArea::default(), "Test1".to_string());
+        sta.add_textarea(TextArea::default(), "Test2".to_string());
+        sta.jump_to_textarea(1);
+        assert_eq!(sta.focused_index, 1);
     }
 }

@@ -42,9 +42,7 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Ctrl+H, Backspace",
             "Delete one character before cursor",
         ]),
-        Row::new(vec!["Ctrl+M, Enter", "Insert newline"]),
         Row::new(vec!["Ctrl+K", "Delete from cursor until the end of line"]),
-        Row::new(vec!["Ctrl+J", "Delete from cursor until the head of line"]),
         Row::new(vec![
             "Ctrl+W, Alt+Backspace",
             "Delete one word before cursor",
@@ -67,10 +65,8 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Ctrl+A, Home, Ctrl+Alt+B, Ctrl+Alt+←",
             "Move cursor to the head of line",
         ]),
-        Row::new(vec![
-            "Alt+<, Ctrl+Alt+P, Ctrl+Alt+↑",
-            "Move cursor to top of lines",
-        ]),
+        Row::new(vec!["Ctrl+M", "Format markdown block"]),
+        Row::new(vec!["Ctrl+J", "Format JSON"]),
     ];
 
     let table = Table::new(commands, [Constraint::Length(5), Constraint::Length(5)])
@@ -92,11 +88,14 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
         "^N:Add".to_string(),
         "^D:Del".to_string(),
         "^Y:Copy".to_string(),
+        "^V:Paste".to_string(),
         "Enter:Edit".to_string(),
         "^F:Focus".to_string(),
         "Esc:Exit".to_string(),
         "^T:Title".to_string(),
         "^S:Select".to_string(),
+        "^J:Format JSON".to_string(),
+        "^M:Format Markdown".to_string(),
     ];
 
     let edit_commands = vec![
@@ -152,7 +151,7 @@ pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
     f.render_widget(ratatui::widgets::Clear, area);
 
     let text = Paragraph::new(popup.title.as_str())
-        .style(Style::default().bg(Color::DarkGray))
+        .style(Style::default().bg(Color::Black))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -222,6 +221,8 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 #[cfg(test)]
 mod tests {
+    use ratatui::{backend::TestBackend, Terminal};
+
     use super::*;
 
     #[test]
@@ -232,5 +233,148 @@ mod tests {
         assert_eq!(centered.height, 50);
         assert_eq!(centered.x, 25);
         assert_eq!(centered.y, 25);
+    }
+
+    #[test]
+    fn test_render_header() {
+        let backend = TestBackend::new(100, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                let area = f.size();
+                render_header(f, area, false);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("Q")));
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("u")));
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("i")));
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("t")));
+
+        assert!(buffer.content.iter().any(|cell| cell.fg == ORANGE));
+    }
+
+    #[test]
+    fn test_render_title_popup() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let popup = TitlePopup {
+            title: "Test Title".to_string(),
+            visible: true,
+        };
+
+        terminal
+            .draw(|f| {
+                render_title_popup(f, &popup);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("T")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("e")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("s")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("t")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol() == "─" || cell.symbol() == "│"));
+    }
+
+    #[test]
+    fn test_render_title_select_popup() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let popup = TitleSelectPopup {
+            titles: vec!["Title1".to_string(), "Title2".to_string()],
+            selected_index: 0,
+            visible: true,
+        };
+
+        terminal
+            .draw(|f| {
+                render_title_select_popup(f, &popup);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains(">")));
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("2")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("1")));
+    }
+
+    #[test]
+    fn test_render_edit_commands_popup() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                render_edit_commands_popup(f);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("E")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("H")));
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("K")));
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.symbol().contains("I") && cell.fg == ORANGE));
     }
 }
