@@ -1,6 +1,6 @@
 [package]
 name = "thoth"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Joel Afriyie joel.o.afriyie@gmail.com, oren.beani@gmail.com"]
 description = "A terminal scratchpad akin to Heynote"
