@@ -84,30 +84,30 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
     let available_width = area.width as usize;
 
     let normal_commands = vec![
-        "Q:Quit".to_string(),
-        "^N:Add".to_string(),
-        "^D:Del".to_string(),
-        "^Y:Copy".to_string(),
-        "^V:Paste".to_string(),
+        "q:Quit".to_string(),
+        "^n:Add".to_string(),
+        "^d:Del".to_string(),
+        "^y:Copy".to_string(),
+        "^v:Paste".to_string(),
         "Enter:Edit".to_string(),
-        "^F:Focus".to_string(),
+        "^f:Focus".to_string(),
         "Esc:Exit".to_string(),
-        "^T:Title".to_string(),
-        "^S:Select".to_string(),
-        "^J:Format JSON".to_string(),
-        "^M:Format Markdown".to_string(),
+        "^t:Title".to_string(),
+        "^s:Select".to_string(),
+        "^j:Format JSON".to_string(),
+        "^m:Format Markdown".to_string(),
     ];
 
     let edit_commands = vec![
         "Esc:Exit Edit".to_string(),
-        "^G:Move Cursor Top".to_string(),
-        "^B:Copy Sel".to_string(),
+        "^g:Move Cursor Top".to_string(),
+        "^b:Copy Sel".to_string(),
         "Shift+↑↓:Sel".to_string(),
-        "^Y:Copy All".to_string(),
-        "^S:Select".to_string(),
-        "^T:Title".to_string(),
-        "^E:External Editor".to_string(),
-        "^H:Help".to_string(),
+        "^y:Copy All".to_string(),
+        "^t:Title".to_string(),
+        "^s:Select".to_string(),
+        "^e:External Editor".to_string(),
+        "^h:Help".to_string(),
     ];
 
     let commands = if is_edit_mode {
