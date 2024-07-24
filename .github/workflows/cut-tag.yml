@@ -13,12 +13,19 @@ jobs:
         with:
           fetch-depth: 0
       
+      - name: Debug Info
+        run: |
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "GitHub Event Name: ${{ github.event_name }}"
+          git log -1
+      
       - name: Get latest tag
         id: get_latest_tag
         run: |
           git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
       
       - name: Bump version
         id: bump_version
@@ -36,10 +43,13 @@ jobs:
             NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
           fi
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
       
       - name: Update Cargo.toml
         run: |
           sed -i 's/^version = ".*"/version = "${{ steps.bump_version.outputs.NEW_VERSION }}"/' Cargo.toml
+          echo "Updated Cargo.toml:"
+          grep version Cargo.toml
       
       - name: Commit and push changes
         env:
@@ -50,6 +60,7 @@ jobs:
           git add Cargo.toml
           git commit -m "Bump version to ${{ steps.bump_version.outputs.NEW_VERSION }}"
           git push
+          echo "Pushed changes"
       
       - name: Create new tag
         env:
@@ -57,3 +68,4 @@ jobs:
         run: |
           git tag -a v${{ steps.bump_version.outputs.NEW_VERSION }} -m "Release v${{ steps.bump_version.outputs.NEW_VERSION }}"
           git push origin v${{ steps.bump_version.outputs.NEW_VERSION }}
+          echo "Created and pushed new tag: v${{ steps.bump_version.outputs.NEW_VERSION }}"
