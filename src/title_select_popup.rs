@@ -40,12 +40,4 @@ mod tests {
         assert_eq!(popup.titles[0], "Title1");
         assert_eq!(popup.titles[1], "Title2");
     }
-
-    #[test]
-    fn test_title_select_popup_change_selection() {
-        let mut popup = TitleSelectPopup::new();
-        popup.titles = vec!["Title1".to_string(), "Title2".to_string()];
-        popup.selected_index = 1;
-        assert_eq!(popup.selected_index, 1);
-    }
 }
