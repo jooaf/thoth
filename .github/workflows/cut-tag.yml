@@ -26,7 +26,7 @@ jobs:
         id: get_latest_tag
         run: |
           git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
           echo "Latest tag: $LATEST_TAG"
       
@@ -35,16 +35,12 @@ jobs:
         run: |
           LATEST_TAG=${{ steps.get_latest_tag.outputs.LATEST_TAG }}
           LATEST_VERSION=${LATEST_TAG#v}
-          if [[ "$LATEST_VERSION" == "0.0.0" ]]; then
-            NEW_VERSION="0.1.0"
-          else
-            IFS='.' read -ra VERSION_PARTS <<< "$LATEST_VERSION"
-            MAJOR=${VERSION_PARTS[0]}
-            MINOR=${VERSION_PARTS[1]}
-            PATCH=${VERSION_PARTS[2]}
-            NEW_PATCH=$((PATCH + 1))
-            NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          fi
+          IFS='.' read -ra VERSION_PARTS <<< "$LATEST_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
       
