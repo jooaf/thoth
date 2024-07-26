@@ -481,7 +481,7 @@ fn run_ui() -> Result<()> {
                 }
             } else {
                 match key.code {
-                    KeyCode::Char('m') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         let current_content = scrollable_textarea.textareas
                             [scrollable_textarea.focused_index]
                             .lines()

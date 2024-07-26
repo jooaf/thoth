@@ -265,7 +265,7 @@ impl ScrollableTextArea {
                     let content = textarea.lines().join("\n");
                     let rendered_markdown = self
                         .markdown_renderer
-                        .render_markdown(content, f.size().width as usize - 2)?;
+                        .render_markdown(&content, f.size().width as usize - 2)?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
                         .wrap(Wrap { trim: true });
@@ -289,7 +289,7 @@ impl ScrollableTextArea {
         let content = textarea.lines().join("\n");
         let rendered_markdown = self
             .markdown_renderer
-            .render_markdown(content, f.size().width as usize - 2)?;
+            .render_markdown(&content, f.size().width as usize - 2)?;
 
         let paragraph = Paragraph::new(rendered_markdown)
             .block(block)

@@ -46,7 +46,7 @@ Esc: Exit
 <ctrl-t>: Change title of block 
 <ctrl-s>: Select block by title
 <ctrl-j>: Format json
-<ctrl-m>: Format markdown 
+<ctrl-k>: Format markdown 
 ```
 #### Commands for edit mode
 ```
@@ -81,7 +81,7 @@ for editing in `tui-textarea`
 | Ctrl+↓ | Move cursor down by paragraph |
 | Ctrl+E, End, Ctrl+Alt+F, Ctrl+Alt+→ | Move cursor to the end of line |
 | Ctrl+A, Home, Ctrl+Alt+B, Ctrl+Alt+← | Move cursor to the head of line |
-| Ctrl+M | Format markdown block |
+| Ctrl+K | Format markdown block |
 | Ctrl+J | Format JSON |
 
 

@@ -31,7 +31,7 @@ fn highlight_code_block(
     let mut result = Vec::new();
 
     let max_line_num = code.lines().count();
-    let line_num_width = max_line_num.to_string().len();
+    let line_num_width = max_line_num;
 
     // Add top border if needed
     if add_top_border {
@@ -110,7 +110,7 @@ impl MarkdownRenderer {
         MarkdownRenderer
     }
 
-    pub fn render_markdown(&self, markdown: String, width: usize) -> Result<Text<'static>> {
+    pub fn render_markdown<'a>(&self, markdown: &'a str, width: usize) -> Result<Text<'a>> {
         let ps = SyntaxSet::load_defaults_newlines();
         let ts = ThemeSet::load_defaults();
         let md_syntax = ps.find_syntax_by_extension("md").unwrap();
@@ -123,6 +123,15 @@ impl MarkdownRenderer {
         // TODO make this a config option
         // Themes: `base16-ocean.dark`,`base16-eighties.dark`,`base16-mocha.dark`,`base16-ocean.light`
         let mut h = HighlightLines::new(md_syntax, theme);
+
+        const HEADER_COLORS: [Color; 6] = [
+            Color::Red,
+            Color::Green,
+            Color::Yellow,
+            Color::Blue,
+            Color::Magenta,
+            Color::Cyan,
+        ];
 
         for line in markdown.lines() {
             if line.starts_with("```") {
@@ -163,8 +172,23 @@ impl MarkdownRenderer {
                 let highlighted = h
                     .highlight_line(line, &ps)
                     .map_err(|e| anyhow!("Highlight error: {}", e))?;
-                let mut spans: Vec<Span<'static>> =
-                    highlighted.into_iter().map(into_span).collect();
+                let mut spans = highlighted.into_iter().map(into_span).collect();
+
+                // Optimized header handling
+                if let Some(header_level) = line.bytes().position(|b| b != b'#') {
+                    if header_level > 0
+                        && header_level <= 6
+                        && line.as_bytes().get(header_level) == Some(&b' ')
+                    {
+                        let header_color = HEADER_COLORS[header_level.saturating_sub(1)];
+                        spans = vec![Span::styled(
+                            line,
+                            Style::default()
+                                .fg(header_color)
+                                .add_modifier(Modifier::BOLD),
+                        )];
+                    }
+                }
 
                 // Pad regular Markdown lines to full width
                 let line_content: String = spans.iter().map(|span| span.content.clone()).collect();
@@ -189,7 +213,7 @@ mod tests {
     fn test_render_markdown() {
         let renderer = MarkdownRenderer::new();
         let markdown = "# Header\n\nThis is **bold** and *italic* text.".to_string();
-        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+        let rendered = renderer.render_markdown(&markdown, 40).unwrap();
 
         assert!(rendered.lines.len() >= 3);
         assert!(rendered.lines[0]
@@ -215,7 +239,7 @@ mod tests {
         let renderer = MarkdownRenderer::new();
         let markdown = "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```"
             .to_string();
-        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+        let rendered = renderer.render_markdown(&markdown, 40).unwrap();
         println!("{:?}", rendered);
 
         assert!(rendered.lines.len() > 5);

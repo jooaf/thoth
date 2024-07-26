@@ -97,7 +97,7 @@ fn test_markdown_renderer_with_code_blocks() {
     let renderer = thoth::MarkdownRenderer::new();
     let markdown =
         "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```".to_string();
-    let rendered = renderer.render_markdown(markdown, 40).unwrap();
+    let rendered = renderer.render_markdown(&markdown, 40).unwrap();
 
     assert!(rendered.lines.len() > 5);
     assert!(rendered.lines[0]
