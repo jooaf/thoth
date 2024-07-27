@@ -5,6 +5,7 @@ on:
       version:
         description: 'Version to release (e.g., 1.2.3)'
         required: true
+
 jobs:
   create_release:
     name: Create Release
@@ -27,7 +28,8 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-    build_and_release:
+
+  build_and_release:
     name: Build and Release
     needs: create_release
     runs-on: ${{ matrix.os }}
@@ -49,6 +51,7 @@ jobs:
             asset_name: thoth-windows-amd64.exe
     steps:
     - uses: actions/checkout@v2
+    
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -56,6 +59,7 @@ jobs:
         toolchain: stable
         override: true
         target: ${{ matrix.target }}
+    
     - name: Build
       run: |
         if [ "${{ matrix.target }}" != "" ]; then
@@ -65,6 +69,7 @@ jobs:
           cargo build --release
         fi
       shell: bash
+    
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
@@ -74,6 +79,7 @@ jobs:
         asset_path: ${{ matrix.target != '' && format('./target/{0}/release/{1}', matrix.target, matrix.artifact_name) || format('./target/release/{0}', matrix.artifact_name) }}
         asset_name: ${{ matrix.asset_name }}
         asset_content_type: application/octet-stream
+
   publish_to_cargo:
     name: Publish to Cargo
     needs: create_release
