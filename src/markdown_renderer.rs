@@ -73,7 +73,6 @@ fn highlight_code_block(
         line_number += 1;
     }
 
-    // Add bottom border
     result.push(Line::from(Span::styled(
         "─".repeat(width),
         Style::default().fg(Color::White),

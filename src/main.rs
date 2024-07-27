@@ -735,8 +735,6 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
                 writeln!(file, "\\{}", line)?;
             }
         }
-        // Add a single blank line between textareas
-        writeln!(file)?;
     }
     Ok(())
 }
