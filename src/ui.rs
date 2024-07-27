@@ -65,7 +65,7 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Ctrl+A, Home, Ctrl+Alt+B, Ctrl+Alt+←",
             "Move cursor to the head of line",
         ]),
-        Row::new(vec!["Ctrl+M", "Format markdown block"]),
+        Row::new(vec!["Ctrl+K", "Format markdown block"]),
         Row::new(vec!["Ctrl+J", "Format JSON"]),
     ];
 
@@ -95,7 +95,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
         "^t:Title".to_string(),
         "^s:Select".to_string(),
         "^j:Format JSON".to_string(),
-        "^m:Format Markdown".to_string(),
+        "^k:Format Markdown".to_string(),
     ];
 
     let edit_commands = vec![

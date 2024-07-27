@@ -8,7 +8,6 @@ use syntect::{
     highlighting::{Style as SyntectStyle, ThemeSet},
     parsing::SyntaxReference,
 };
-// use syntect_tui::into_span;
 
 pub struct MarkdownRenderer;
 
@@ -20,6 +19,7 @@ impl Default for MarkdownRenderer {
 
 fn highlight_code_block(
     code: &str,
+    lang: &str,
     syntax: &SyntaxReference,
     ps: &SyntaxSet,
     theme: &syntect::highlighting::Theme,
@@ -31,9 +31,9 @@ fn highlight_code_block(
     let mut result = Vec::new();
 
     let max_line_num = code.lines().count();
-    let line_num_width = max_line_num;
-
-    // Add top border if needed
+    // done to create the proper spacing after the line number
+    let line_num_width = max_line_num.to_string().len();
+    // add top border if needed
     if add_top_border {
         result.push(Line::from(Span::styled(
             "─".repeat(width),
@@ -46,10 +46,20 @@ fn highlight_code_block(
         let highlighted = h
             .highlight_line(line, ps)
             .map_err(|e| anyhow!("Highlight error: {}", e))?;
-        let mut spans = vec![Span::styled(
-            format!("{:>width$} │ ", line_number, width = line_num_width),
-            Style::default().fg(Color::White),
-        )];
+
+        let mut spans = if lang != "json" {
+            vec![Span::styled(
+                format!("{:>width$} │ ", line_number, width = line_num_width),
+                Style::default().fg(Color::White),
+            )]
+        // if json no need to render lines
+        // TODO: find a way of making lines flush for syntax highlighting of json. not critical tho
+        } else {
+            vec![Span::styled(
+                format!("{:>width$}  ", line_number, width = line_num_width),
+                Style::default().fg(Color::White),
+            )]
+        };
         spans.extend(highlighted.into_iter().map(into_span));
 
         // Pad the line to full width
@@ -119,6 +129,8 @@ impl MarkdownRenderer {
         let mut code_block_lang = String::new();
         let mut code_block_content = String::new();
         let mut is_first_code_block = true;
+        let mut json_start = false;
+        let mut start_del = "".to_string();
         let theme = &ts.themes["base16-mocha.dark"];
         // TODO make this a config option
         // Themes: `base16-ocean.dark`,`base16-eighties.dark`,`base16-mocha.dark`,`base16-ocean.light`
@@ -133,27 +145,64 @@ impl MarkdownRenderer {
             Color::Cyan,
         ];
 
-        for line in markdown.lines() {
+        for (index, line) in markdown.lines().enumerate() {
+            // TODO: Assumption here is that this will be rendered if JSON is inputted.
+            // might want to change to be more flexible
+            if line.starts_with('{') || line.starts_with('[') {
+                start_del = line.chars().next().unwrap().to_string();
+                json_start = true;
+                in_code_block = true;
+            } else if json_start
+                && in_code_block
+                && (line.starts_with(']') || line.starts_with('}'))
+            {
+                // TODO: ugly clean up
+                let end_del = if start_del == *"{" {
+                    "}".to_string()
+                } else {
+                    "]".to_string()
+                };
+
+                code_block_content.push_str(&end_del);
+                code_block_content.push('\n');
+
+                let syntax = ps.find_syntax_by_extension("json").unwrap();
+                lines.extend(highlight_code_block(
+                    &code_block_content,
+                    "json",
+                    syntax,
+                    &ps,
+                    theme,
+                    true,
+                    width,
+                )?);
+
+                json_start = false;
+                is_first_code_block = false;
+            }
+
             if line.starts_with("```") {
                 if in_code_block {
                     // End of code block
                     if let Some(syntax) = ps.find_syntax_by_token(&code_block_lang) {
                         lines.extend(highlight_code_block(
                             &code_block_content,
+                            &code_block_lang,
                             syntax,
                             &ps,
                             theme,
-                            !is_first_code_block,
+                            !is_first_code_block || index != 0,
                             width,
                         )?);
                     } else {
                         // Fallback to plain text if language not recognized
                         lines.extend(highlight_code_block(
                             &code_block_content,
+                            &code_block_lang,
                             md_syntax,
                             &ps,
                             theme,
-                            !is_first_code_block,
+                            !is_first_code_block || index != 0,
                             width,
                         )?);
                     }
