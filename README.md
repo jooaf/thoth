@@ -11,7 +11,8 @@ in which having a terminal based scratchpad would be nice. Enter Thoth! Thoth fo
 
 ### Differences Compared to Heynote 
 - The persistent buffer in Thoth gets saved as a markdown file in your home directory. I did this since I use [Obsidian](https://obsidian.md) for all of my notes, and I wanted my scratchpad 
-to also be displayable in the app. 
+to also be displayable in the app.
+- Blocks are titled and can be selected by title.
 - The ability to edit a block using your favorite terminal editor such as Neovim, Helix, Vim, and others via setting the $EDITOR or $VISUAL environment variables.
 - A CLI that allows one to pipe information via STDIN into a new block, or use STDOUT to get text out of a block. 
 
