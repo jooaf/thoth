@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
     Frame,
 };
+use unicode_width::UnicodeWidthStr;
 
 pub struct EditCommandsPopup {
     pub visible: bool,
@@ -82,61 +83,64 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
 
 pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
     let available_width = area.width as usize;
-
     let normal_commands = vec![
-        "q:Quit".to_string(),
-        "^n:Add".to_string(),
-        "^d:Del".to_string(),
-        "^y:Copy".to_string(),
-        "^v:Paste".to_string(),
-        "Enter:Edit".to_string(),
-        "^f:Focus".to_string(),
-        "Esc:Exit".to_string(),
-        "^t:Title".to_string(),
-        "^s:Select".to_string(),
-        "^j:Format JSON".to_string(),
-        "^k:Format Markdown".to_string(),
+        "q:Quit",
+        "^n:Add",
+        "^d:Del",
+        "^y:Copy",
+        "^v:Paste",
+        "Enter:Edit",
+        "^f:Focus",
+        "Esc:Exit",
+        "^t:Title",
+        "^s:Select",
+        "^j:Format JSON",
+        "^k:Format Markdown",
     ];
-
     let edit_commands = vec![
-        "Esc:Exit Edit".to_string(),
-        "^g:Move Cursor Top".to_string(),
-        "^b:Copy Sel".to_string(),
-        "Shift+↑↓:Sel".to_string(),
-        "^y:Copy All".to_string(),
-        "^t:Title".to_string(),
-        "^s:Select".to_string(),
-        "^e:External Editor".to_string(),
-        "^h:Help".to_string(),
+        "Esc:Exit Edit",
+        "^g:Move Cursor Top",
+        "^b:Copy Sel",
+        "Shift+↑↓:Sel",
+        "^y:Copy All",
+        "^t:Title",
+        "^s:Select",
+        "^e:External Editor",
+        "^h:Help",
     ];
-
     let commands = if is_edit_mode {
         &edit_commands
     } else {
         &normal_commands
     };
-
     let thoth = "Thoth  ";
     let separator = " | ";
 
-    let mut display_commands: Vec<String> = Vec::new();
-    let mut total_length = thoth.len();
+    let thoth_width = thoth.width();
+    let separator_width = separator.width();
+    let reserved_width = thoth_width + 2; // 2 extra spaces for padding
+
+    let mut display_commands = Vec::new();
+    let mut current_width = 0;
 
     for cmd in commands {
-        if total_length + cmd.len() + separator.len() > available_width {
+        let cmd_width = cmd.width();
+        if current_width + cmd_width + separator_width > available_width - reserved_width {
             break;
         }
-        display_commands.push(cmd.to_owned());
-        total_length += cmd.len() + separator.len();
+        display_commands.push(*cmd);
+        current_width += cmd_width + separator_width;
     }
 
     let command_string = display_commands.join(separator);
-    let remaining_space = available_width.saturating_sub(total_length);
+    let command_width = command_string.width();
+
+    let padding = " ".repeat(available_width - command_width - thoth_width - 2);
 
     let header = Line::from(vec![
         Span::styled(command_string, Style::default().fg(ORANGE)),
-        Span::styled(" ".repeat(remaining_space), Style::default().fg(ORANGE)),
-        Span::styled(thoth, Style::default().fg(ORANGE)),
+        Span::styled(padding, Style::default().fg(ORANGE)),
+        Span::styled(format!(" {} ", thoth), Style::default().fg(ORANGE)),
     ]);
 
     let tabs = Tabs::new(vec![header])

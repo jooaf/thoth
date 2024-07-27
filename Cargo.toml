@@ -26,6 +26,7 @@ once_cell = "1.8.0"
 atty = "0.2.14"
 tempfile = "3.2"
 syntect-tui = "3.0.2"
+unicode-width = "0.1.10"
 
 [[bin]]
 name = "thoth"

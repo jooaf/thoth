@@ -1350,7 +1350,7 @@ dependencies = [
 
 [[package]]
 name = "thoth-cli"
-version = "0.1.15"
+version = "0.1.20"
 dependencies = [
  "anyhow",
  "atty",
@@ -1368,6 +1368,7 @@ dependencies = [
  "syntect-tui",
  "tempfile",
  "tui-textarea",
+ "unicode-width",
 ]
 
 [[package]]
