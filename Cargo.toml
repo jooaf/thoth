@@ -2,15 +2,18 @@
 name = "thoth"
 version = "0.1.14"
 edition = "2021"
-authors = ["Joel Afriyie joel.o.afriyie@gmail.com, oren.beani@gmail.com"]
+authors = ["Joel Afriyie <joel.o.afriyie@gmail.com>", "Oren Beani <oren.beani@gmail.com>"]
 description = "A terminal scratchpad akin to Heynote"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+repository = "https://github.com/jooaf/thoth"
+readme = "README.md"
+keywords = ["terminal", "scratchpad", "note-taking"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 serde_json = "1.0"
 syntect = "5.1"
-pulldown-cmark = { version = "0.11.0"}
+pulldown-cmark = { version = "0.11.0" }
 pulldown-cmark-to-cmark = "15.0.1"
 ratatui = "0.27.0"
 crossterm = { version = "0.27.0", features = ["bracketed-paste"] }
