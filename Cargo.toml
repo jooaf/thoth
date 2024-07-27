@@ -27,5 +27,9 @@ atty = "0.2.14"
 tempfile = "3.2"
 syntect-tui = "3.0.2"
 
+[[bin]]
+name = "thoth"
+path = "src/main.rs"
+
 [dev-dependencies]
 mockall = "0.11"
