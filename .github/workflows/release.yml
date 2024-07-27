@@ -9,6 +9,8 @@ jobs:
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
@@ -16,15 +18,16 @@ jobs:
       
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ github.event.inputs.version }}
-          release_name: Release v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }}
           draft: false
           prerelease: false
-  build_and_release:
+          generate_release_notes: true
+    build_and_release:
     name: Build and Release
     needs: create_release
     runs-on: ${{ matrix.os }}
