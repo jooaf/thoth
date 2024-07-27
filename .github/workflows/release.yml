@@ -14,6 +14,7 @@ jobs:
       contents: write
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v2
       
@@ -48,6 +49,7 @@ jobs:
           - os: macos-latest
             artifact_name: thoth-cli
             asset_name: thoth-cli-macos-x86_64
+            target: x86_64-apple-darwin
           - os: macos-latest
             artifact_name: thoth-cli
             asset_name: thoth-cli-macos-arm64
@@ -81,12 +83,14 @@ jobs:
       shell: bash
     
     - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: ${{ matrix.target != '' && format('./target/{0}/release/{1}', matrix.target, matrix.artifact_name) || format('./target/release/{0}', matrix.artifact_name) }}
-        tag_name: v${{ github.event.inputs.version }}
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: ${{ matrix.target != '' && format('./target/{0}/release/{1}', matrix.target, matrix.artifact_name) || format('./target/release/{0}', matrix.artifact_name) }}
+        asset_name: ${{ matrix.asset_name }}
+        asset_content_type: application/octet-stream
 
   publish_to_cargo:
     name: Publish to Cargo
