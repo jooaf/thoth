@@ -39,18 +39,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: thoth
-            asset_name: thoth-linux-amd64
+            artifact_name: thoth-cli
+            asset_name: thoth-cli-linux-amd64
           - os: ubuntu-latest
-            artifact_name: thoth
-            asset_name: thoth-linux-x86
+            artifact_name: thoth-cli
+            asset_name: thoth-cli-linux-x86
             target: i686-unknown-linux-gnu
           - os: macos-latest
-            artifact_name: thoth
-            asset_name: thoth-macos-x86_64
+            artifact_name: thoth-cli
+            asset_name: thoth-cli-macos-x86_64
           - os: macos-latest
-            artifact_name: thoth
-            asset_name: thoth-macos-arm64
+            artifact_name: thoth-cli
+            asset_name: thoth-cli-macos-arm64
             target: aarch64-apple-darwin
     steps:
     - uses: actions/checkout@v2

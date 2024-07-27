@@ -1,4 +1,4 @@
-use thoth::{
+use thoth_cli::{
     format_json, format_markdown, get_save_file_path, ScrollableTextArea, TitlePopup,
     TitleSelectPopup,
 };
@@ -94,7 +94,7 @@ fn test_scrollable_textarea_scroll_behavior() {
 
 #[test]
 fn test_markdown_renderer_with_code_blocks() {
-    let renderer = thoth::MarkdownRenderer::new();
+    let renderer = thoth_cli::MarkdownRenderer::new();
     let markdown =
         "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```".to_string();
     let rendered = renderer.render_markdown(&markdown, 40).unwrap();

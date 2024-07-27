@@ -1349,8 +1349,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "thoth"
-version = "0.1.2"
+name = "thoth-cli"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "atty",

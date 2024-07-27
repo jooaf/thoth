@@ -11,7 +11,7 @@ use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
 };
-use thoth::{
+use thoth_cli::{
     format_json, format_markdown, get_save_file_path,
     ui::{
         render_edit_commands_popup, render_header, render_title_popup, render_title_select_popup,
