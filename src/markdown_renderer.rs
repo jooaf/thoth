@@ -148,23 +148,27 @@ impl MarkdownRenderer {
         for (index, line) in markdown.lines().enumerate() {
             // TODO: Assumption here is that this will be rendered if JSON is inputted.
             // might want to change to be more flexible
+
+            let one_line_json = index == markdown.lines().count() - 1;
             if line.starts_with('{') || line.starts_with('[') {
                 start_del = line.chars().next().unwrap().to_string();
                 json_start = true;
                 in_code_block = true;
             } else if json_start
                 && in_code_block
-                && (line.starts_with(']') || line.starts_with('}'))
+                && ((line.starts_with(']') || line.starts_with('}')) || one_line_json)
             {
                 // TODO: ugly clean up
-                let end_del = if start_del == *"{" {
-                    "}".to_string()
-                } else {
-                    "]".to_string()
-                };
+                if !one_line_json {
+                    let end_del = if start_del == *"{" {
+                        "}".to_string()
+                    } else {
+                        "]".to_string()
+                    };
 
-                code_block_content.push_str(&end_del);
-                code_block_content.push('\n');
+                    code_block_content.push_str(&end_del);
+                    code_block_content.push('\n');
+                }
 
                 let syntax = ps.find_syntax_by_extension("json").unwrap();
                 lines.extend(highlight_code_block(
