@@ -2,7 +2,7 @@
 name = "thoth-cli"
 version = "0.1.20"
 edition = "2021"
-authors = ["Joel Afriyie <joel.o.afriyie@gmail.com>", "Oren Beani <oren.beani@gmail.com>"]
+authors = ["Joel Afriyie <joel.o.afriyie@gmail.com>", "Joel Afriyie <oren.beani@gmail.com>"]
 description = "A terminal scratchpad akin to Heynote"
 license = "MIT"
 repository = "https://github.com/jooaf/thoth"
