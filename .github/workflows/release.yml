@@ -83,15 +83,3 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-  publish_to_homebrew:
-    name: Publish to Homebrew
-    needs: create_release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update Homebrew formula
-        uses: dawidd6/action-homebrew-bump-formula@v3
-        with:
-          token: ${{secrets.HOMEBREW_TAP_TOKEN}}
-          formula: thoth
-          tag: ${{ github.event.inputs.version }}
-          revision: ${{github.sha}}
