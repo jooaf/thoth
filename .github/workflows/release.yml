@@ -41,6 +41,10 @@ jobs:
           - os: ubuntu-latest
             artifact_name: thoth
             asset_name: thoth-linux-amd64
+          - os: ubuntu-latest
+            artifact_name: thoth
+            asset_name: thoth-linux-x86
+            target: i686-unknown-linux-gnu
           - os: macos-latest
             artifact_name: thoth
             asset_name: thoth-macos-x86_64
@@ -48,9 +52,6 @@ jobs:
             artifact_name: thoth
             asset_name: thoth-macos-arm64
             target: aarch64-apple-darwin
-          - os: windows-latest
-            artifact_name: thoth.exe
-            asset_name: thoth-windows-amd64.exe
     steps:
     - uses: actions/checkout@v2
     
@@ -62,6 +63,13 @@ jobs:
         override: true
         target: ${{ matrix.target }}
     
+    - name: Install x86 dependencies
+      if: matrix.target == 'i686-unknown-linux-gnu'
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib
+      
     - name: Build
       run: |
         if [ "${{ matrix.target }}" != "" ]; then
@@ -86,11 +94,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: cargo publish
+      
+      - name: Verify Cargo Token
+        run: |
+          if [ -z "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]; then
+            echo "CARGO_REGISTRY_TOKEN is not set"
+            exit 1
+          else
+            echo "CARGO_REGISTRY_TOKEN is set"
+          fi
+      
+      - name: Publish to Cargo
+        run: |
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --verbose || {
+            echo "Cargo publish failed. Checking package status..."
+            cargo package --list
+            exit 1
+          }
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
