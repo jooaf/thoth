@@ -1,4 +1,6 @@
 # Thoth
+![thoth](https://github.com/user-attachments/assets/b5954aac-b20f-4c24-af7c-67dc6224df89)
+
 
 A terminal scratchpad inspired by [Heynote](https://github.com/heyman/heynote). 
 
@@ -11,19 +13,22 @@ in which having a terminal based scratchpad would be nice. Enter Thoth! Thoth fo
 - The persistent buffer in Thoth gets saved as a markdown file in your home directory. I did this since I use [Obsidian](https://obsidian.md) for all of my notes, and I wanted my scratchpad 
 to also be displayable in the app. 
 - The ability to edit a block using your favorite terminal editor such as Neovim, Helix, Vim, and others via setting the $EDITOR or $VISUAL environment variables.
-- A CLI that allows one to pipe information via STDIN into a new block, or use STDOUT to get text out of a block.
+- A CLI that allows one to pipe information via STDIN into a new block, or use STDOUT to get text out of a block. 
 
 
 ## Why the name Thoth? 
-In Egyptology, Thoth is the god of writing, wisdom, and magic. Thoth was in charge of messenging and recording knowledge and events for the Egyptian deities. 
-Seems like a fitting name for a persistent scratchpad. 
 
-## Main tools to build Thoth
-- tui-textarea
-- ratatui 
-- crossterm 
-- pulldown-cmark 
-- clap 
+<img width="160" alt="image" src="https://github.com/user-attachments/assets/e24b51f1-1e07-45c1-973e-321d17b87041">
+
+In Egyptology, Thoth is the god of writing, wisdom, and magic. Thoth was in charge of messenging and recording knowledge and events for the Egyptian deities. 
+Seems like a fitting name for a persistent scratchpad :). 
+
+## Main tools used to build Thoth
+- [tui-textarea](https://github.com/rhysd/tui-textarea)
+- [ratatui](https://github.com/ratatui-org/ratatui)
+- [crossterm](https://github.com/crossterm-rs/crossterm)
+- [pulldown-cmark](https://github.com/pulldown-cmark/pulldown-cmark)
+- [clap](https://github.com/clap-rs/clap) 
 
 ## Installation 
 
@@ -32,7 +37,7 @@ Seems like a fitting name for a persistent scratchpad.
 This will show how to use the scratchpad via the CLI or the TUI. 
 
 ### TUI 
-To start the TUI, simple type `thoth`
+To start the TUI, simple type `thoth`. Since it is a persistent buffer, thoth will save when you hit quit using `q`.
 
 #### Commands for main mode 
 ```
@@ -62,7 +67,7 @@ Shift-Up Arrow or Down: Make highlighted selection by line
 ```
 
 The other commands are based off of the default keybindings 
-for editing in `tui-textarea`
+for editing in `tui-textarea`.
 
 | MAPPINGS | DESCRIPTIONS |
 |----------|--------------|
@@ -84,6 +89,7 @@ for editing in `tui-textarea`
 | Ctrl+K | Format markdown block |
 | Ctrl+J | Format JSON |
 
+If you would like to use your external editor -- such as NeoVim, Helix, etc. -- Thoth offers that functionality.
 
 ### CLI 
 For accessing the CLI, one can use `thoth` followed by a command.
