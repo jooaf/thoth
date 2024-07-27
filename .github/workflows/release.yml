@@ -1,12 +1,10 @@
 name: Release
-
 on:
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to release (e.g., 1.2.3)'
         required: true
-
 jobs:
   create_release:
     name: Create Release
@@ -26,48 +24,53 @@ jobs:
           release_name: Release v${{ github.event.inputs.version }}
           draft: false
           prerelease: false
-
   build_and_release:
     name: Build and Release
     needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             artifact_name: thoth
             asset_name: thoth-linux-amd64
           - os: macos-latest
             artifact_name: thoth
-            asset_name: thoth-macos-amd64
+            asset_name: thoth-macos-x86_64
+          - os: macos-latest
+            artifact_name: thoth
+            asset_name: thoth-macos-arm64
+            target: aarch64-apple-darwin
           - os: windows-latest
             artifact_name: thoth.exe
             asset_name: thoth-windows-amd64.exe
-
     steps:
     - uses: actions/checkout@v2
-
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
         override: true
-
+        target: ${{ matrix.target }}
     - name: Build
-      run: cargo build --release
-
+      run: |
+        if [ "${{ matrix.target }}" != "" ]; then
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }}
+        else
+          cargo build --release
+        fi
+      shell: bash
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create_release.outputs.upload_url }}
-        asset_path: ./target/release/${{ matrix.artifact_name }}
+        asset_path: ${{ matrix.target != '' && format('./target/{0}/release/{1}', matrix.target, matrix.artifact_name) || format('./target/release/{0}', matrix.artifact_name) }}
         asset_name: ${{ matrix.asset_name }}
         asset_content_type: application/octet-stream
-
   publish_to_cargo:
     name: Publish to Cargo
     needs: create_release
@@ -82,4 +85,3 @@ jobs:
       - run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
