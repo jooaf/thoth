@@ -13,7 +13,7 @@ in which having a terminal based scratchpad would be nice. Enter Thoth! Thoth fo
 - The persistent buffer in Thoth gets saved as a markdown file in your home directory. I did this since I use [Obsidian](https://obsidian.md) for all of my notes, and I wanted my scratchpad 
 to also be displayable in the app.
 - Blocks are titled and can be selected by title.
-- The ability to edit a block using your favorite terminal editor such as Neovim, Helix, Vim, and others via setting the $EDITOR or $VISUAL environment variables.
+- The ability to edit a block using your favorite terminal editor such as Neovim, Helix, Vim, and others via setting the `$EDITOR` or `$VISUAL` environment variables.
 - A CLI that allows one to pipe information via STDIN into a new block, or use STDOUT to get text out of a block. 
 
 
@@ -32,7 +32,33 @@ Seems like a fitting name for a persistent scratchpad :).
 - [clap](https://github.com/clap-rs/clap) 
 
 ## Installation 
+### Via Cargo
+If you have `cargo` installed on your machine, you can download directly from crates.io 
 
+```bash 
+cargo install thoth-cli
+```
+
+### From binaries via Release section
+Go to the release page, and download the binary associated with your OS (Note: currently supports Linux and MacOS). 
+Once you have downloaded the binary, go to the location where you downloaded the binary, rename the binary to `thoth`, and give the binary executable permissions by doing the following:
+```bash
+cd /path/to/binary
+mv current_binary_name thoth
+chmod +x thoth
+```
+You can then move binary if you choose so. Finally, add the path of the binary to your `$PATH`. 
+
+### From Source 
+To build from source, please make sure that you have the Rust compiler installed (version 1.70.0 or higher), and the Cargo package manager. You can install both by installing [rustup](https://rustup.rs/).
+
+Once you have installed Rust, please do the following:
+```bash
+git clone https://github.com/jooaf/thoth.git
+cd thoth
+cargo build --release
+```
+The binary lives in `thoth/target/release/thoth`. You can add the binary to your `$PATH`.
 
 ## Usage 
 This will show how to use the scratchpad via the CLI or the TUI. 
