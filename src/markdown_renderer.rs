@@ -145,21 +145,31 @@ impl MarkdownRenderer {
             Color::Cyan,
         ];
 
+        let max_num_lines = markdown.lines().count() - 1; // first line will be used for code line
+
         for (index, line) in markdown.lines().enumerate() {
+            // when the index finally has reached the last line, finishing the highlighting
+            let reached_end = index == max_num_lines;
+
             // TODO: Assumption here is that this will be rendered if JSON is inputted.
             // might want to change to be more flexible
-
-            let one_line_json = index == markdown.lines().count() - 1;
+            // this is for the json rendering
             if line.starts_with('{') || line.starts_with('[') {
                 start_del = line.chars().next().unwrap().to_string();
                 json_start = true;
                 in_code_block = true;
-            } else if json_start
-                && in_code_block
-                && ((line.starts_with(']') || line.starts_with('}')) || one_line_json)
-            {
+
+                // when the json is only one line
+                if max_num_lines == 0 {
+                    code_block_content.push_str(line);
+                    code_block_content.push('\n');
+                }
+            }
+
+            if json_start && in_code_block && reached_end {
                 // TODO: ugly clean up
-                if !one_line_json {
+                // TODO: You will need to take into badly formatted json that has a ton of spaces in between keys
+                if reached_end && index != 0 {
                     let end_del = if start_del == *"{" {
                         "}".to_string()
                     } else {
@@ -177,11 +187,13 @@ impl MarkdownRenderer {
                     syntax,
                     &ps,
                     theme,
-                    true,
+                    false,
                     width,
                 )?);
 
                 json_start = false;
+                in_code_block = false;
+                code_block_content.clear();
                 is_first_code_block = false;
             }
 
