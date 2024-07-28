@@ -110,12 +110,18 @@ jobs:
         sudo apt-get install -y rpm
         mkdir -p dist/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
         cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/rpm/SOURCES/
+        
+        # Debug information
+        echo "Contents of SOURCES directory:"
+        ls -l dist/rpm/SOURCES/
+        
         cat << EOF > dist/rpm/SPECS/thoth.spec
         Name: thoth
         Version: ${{ github.event.inputs.version }}
         Release: 1
         Summary: Thoth application
         License: Proprietary
+        BuildArch: $(uname -m)
         
         %description
         Thoth application
@@ -126,9 +132,27 @@ jobs:
         
         %files
         /usr/bin/thoth
+        
+        %define __strip /bin/true
+        %define __spec_install_post %{nil}
         EOF
+        
+        # Debug information
+        echo "Contents of SPECS directory:"
+        ls -l dist/rpm/SPECS/
+        cat dist/rpm/SPECS/thoth.spec
+        
         rpmbuild -bb --define "_topdir $(pwd)/dist/rpm" dist/rpm/SPECS/thoth.spec
-        mv dist/rpm/RPMS/*/*.rpm dist/${{ matrix.asset_name }}.rpm
+        
+        # Debug information
+        echo "Contents of RPMS directory:"
+        find dist/rpm/RPMS
+        
+        # Move the RPM file (adjust the path as necessary)
+        find dist/rpm/RPMS -name '*.rpm' -exec mv {} dist/${{ matrix.asset_name }}.rpm \;
+        
+        # Verify the RPM was created
+        ls -l dist/${{ matrix.asset_name }}.rpm || echo "RPM file not found"    
         
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
