@@ -4,12 +4,14 @@ use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use anyhow::Result;
 use copypasta::{ClipboardContext, ClipboardProvider};
+use rand::Rng;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
+use std::collections::HashSet;
 use tui_textarea::TextArea;
 
 pub struct ScrollableTextArea {
@@ -52,6 +54,35 @@ impl ScrollableTextArea {
         }
     }
 
+    pub fn change_title(&mut self, new_title: String) {
+        let unique_title = self.generate_unique_title(new_title);
+        if self.focused_index < self.titles.len() {
+            self.titles[self.focused_index] = unique_title;
+        }
+    }
+
+    fn generate_unique_title(&self, base_title: String) -> String {
+        if !self.titles.contains(&base_title) {
+            return base_title;
+        }
+
+        let existing_titles: HashSet<String> = self.titles.iter().cloned().collect();
+        let mut rng = rand::thread_rng();
+        let mut new_title = base_title.clone();
+        let mut counter = 1;
+
+        while existing_titles.contains(&new_title) {
+            if counter <= 5 {
+                new_title = format!("{} {}", base_title, counter);
+            } else {
+                new_title = format!("{} {}", base_title, rng.gen_range(100..1000));
+            }
+            counter += 1;
+        }
+
+        new_title
+    }
+
     pub fn add_textarea(&mut self, textarea: TextArea<'static>, title: String) {
         let new_index = if self.textareas.is_empty() {
             0
@@ -59,8 +90,9 @@ impl ScrollableTextArea {
             self.focused_index + 1
         };
 
+        let unique_title = self.generate_unique_title(title);
         self.textareas.insert(new_index, textarea);
-        self.titles.insert(new_index, title);
+        self.titles.insert(new_index, unique_title);
         self.focused_index = new_index;
         self.adjust_scroll_to_focused();
     }
@@ -130,12 +162,6 @@ impl ScrollableTextArea {
             .iter()
             .map(|ta| ta.lines().len().max(3) as u16 + 2)
             .sum()
-    }
-
-    pub fn change_title(&mut self, new_title: String) {
-        if self.focused_index < self.titles.len() {
-            self.titles[self.focused_index] = new_title;
-        }
     }
 
     pub fn initialize_scroll(&mut self) {
