@@ -1,4 +1,11 @@
 # Thoth
+
+[![CI](https://github.com/jooaf/thoth/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/jooaf/thoth/actions/workflows/rust-ci.yml)
+[![Release](https://img.shields.io/github/v/release/jooaf/thoth)](https://github.com/jooaf/thoth/releases)
+[![Auto Tag and Update Version](https://github.com/jooaf/thoth/actions/workflows/cut-tag.yml/badge.svg)](https://github.com/jooaf/thoth/actions/workflows/cut-tag.yml)
+[![Crates.io](https://img.shields.io/crates/v/thoth-cli.svg)](https://crates.io/crates/thoth-cli)
+[![Docs.rs](https://docs.rs/thoth-cli/badge.svg)](https://docs.rs/thoth-cli)
+
 ![thoth](https://github.com/user-attachments/assets/b5954aac-b20f-4c24-af7c-67dc6224df89)
 
 
