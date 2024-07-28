@@ -16,7 +16,7 @@ jobs:
       release_id: ${{ steps.create_release.outputs.id }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Create Release
         id: create_release
@@ -40,22 +40,32 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             artifact_name: thoth
-            asset_name: thoth-linux-amd64
+            asset_name: thoth_${{ github.event.inputs.version }}_linux_amd64
           - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
             artifact_name: thoth
-            asset_name: thoth-linux-x86
-            target: i686-unknown-linux-gnu
+            asset_name: thoth_${{ github.event.inputs.version }}_linux_arm64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: thoth
+            asset_name: thoth_${{ github.event.inputs.version }}_linux-musl_amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            artifact_name: thoth
+            asset_name: thoth_${{ github.event.inputs.version }}_linux-musl_arm64
           - os: macos-latest
-            artifact_name: thoth
-            asset_name: thoth-macos-x86_64
             target: x86_64-apple-darwin
-          - os: macos-latest
             artifact_name: thoth
-            asset_name: thoth-macos-arm64
+            asset_name: thoth_${{ github.event.inputs.version }}_darwin_amd64
+          - os: macos-latest
             target: aarch64-apple-darwin
+            artifact_name: thoth
+            asset_name: thoth_${{ github.event.inputs.version }}_darwin_arm64
+
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Install Rust
       uses: actions-rs/toolchain@v1
@@ -65,39 +75,81 @@ jobs:
         override: true
         target: ${{ matrix.target }}
     
-    - name: Install x86 dependencies
-      if: matrix.target == 'i686-unknown-linux-gnu'
+    - name: Install cross-compilation tools
+      if: runner.os == 'Linux'
       run: |
-        sudo dpkg --add-architecture i386
         sudo apt-get update
-        sudo apt-get install -y gcc-multilib
-      
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+    
     - name: Build
       run: |
-        if [ "${{ matrix.target }}" != "" ]; then
-          rustup target add ${{ matrix.target }}
-          cargo build --release --target ${{ matrix.target }}
-        else
-          cargo build --release
-        fi
-      shell: bash
-    
+        rustup target add ${{ matrix.target }}
+        cargo build --release --target ${{ matrix.target }}
+      
+    - name: Package
+      run: |
+        mkdir -p dist
+        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/
+        cd dist
+        tar -czvf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+        
+    - name: Create DEB package (Linux only)
+      if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+      run: |
+        sudo apt-get install -y fakeroot
+        mkdir -p dist/deb/DEBIAN dist/deb/usr/bin
+        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/deb/usr/bin/
+        cat << EOF > dist/deb/DEBIAN/control
+        Package: thoth
+        Version: ${{ github.event.inputs.version }}
+        Architecture: ${{ contains(matrix.target, 'aarch64') && 'arm64' || 'amd64' }}
+        Maintainer: Joel Afriyie joel.o.afriyie@gmail.com
+        Description: Thoth application
+        EOF
+        fakeroot dpkg-deb --build dist/deb dist/${{ matrix.asset_name }}.deb
+        
+    - name: Create RPM package (Linux only)
+      if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+      run: |
+        sudo apt-get install -y rpm
+        mkdir -p dist/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/rpm/SOURCES/
+        cat << EOF > dist/rpm/SPECS/thoth.spec
+        Name: thoth
+        Version: ${{ github.event.inputs.version }}
+        Release: 1
+        Summary: Thoth application
+        License: Proprietary
+        
+        %description
+        Thoth application
+        
+        %install
+        mkdir -p %{buildroot}/usr/bin
+        cp %{_sourcedir}/thoth %{buildroot}/usr/bin/thoth
+        
+        %files
+        /usr/bin/thoth
+        EOF
+        rpmbuild -bb --define "_topdir $(pwd)/dist/rpm" dist/rpm/SPECS/thoth.spec
+        mv dist/rpm/RPMS/*/*.rpm dist/${{ matrix.asset_name }}.rpm
+        
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create_release.outputs.upload_url }}
-        asset_path: ${{ matrix.target != '' && format('./target/{0}/release/{1}', matrix.target, matrix.artifact_name) || format('./target/release/{0}', matrix.artifact_name) }}
-        asset_name: ${{ matrix.asset_name }}
-        asset_content_type: application/octet-stream
+        asset_path: ./dist/${{ matrix.asset_name }}.tar.gz
+        asset_name: ${{ matrix.asset_name }}.tar.gz
+        asset_content_type: application/gzip
 
   publish_to_cargo:
     name: Publish to Cargo
     needs: create_release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Install Rust
         uses: actions-rs/toolchain@v1
