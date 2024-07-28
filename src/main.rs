@@ -24,6 +24,7 @@ use tui_textarea::TextArea;
 use std::env;
 use std::fs;
 use std::process::Command;
+use std::time::{Duration, Instant};
 use tempfile::NamedTempFile;
 
 #[derive(Parser)]
@@ -320,389 +321,409 @@ fn run_ui() -> Result<()> {
     let mut title_select_popup = TitleSelectPopup::new();
     let mut clipboard = ClipboardContext::new().expect("Failed to initialize clipboard");
 
+    let mut last_draw = Instant::now();
+    let draw_interval = Duration::from_millis(23);
+
     loop {
-        terminal.draw(|f| {
-            let chunks = ratatui::layout::Layout::default()
-                .direction(ratatui::layout::Direction::Vertical)
-                .constraints(
-                    [
-                        ratatui::layout::Constraint::Length(1),
-                        ratatui::layout::Constraint::Min(1),
-                    ]
-                    .as_ref(),
-                )
-                .split(f.size());
+        let should_draw = last_draw.elapsed() >= draw_interval;
 
-            render_header(f, chunks[0], scrollable_textarea.edit_mode);
-            if scrollable_textarea.full_screen_mode {
-                scrollable_textarea
-                    .render(f, f.size())
-                    .context("Failed to render")
-                    .unwrap();
-            } else {
-                scrollable_textarea.render(f, chunks[1]).unwrap();
-            }
+        if should_draw {
+            terminal.draw(|f| {
+                let chunks = ratatui::layout::Layout::default()
+                    .direction(ratatui::layout::Direction::Vertical)
+                    .constraints(
+                        [
+                            ratatui::layout::Constraint::Length(1),
+                            ratatui::layout::Constraint::Min(1),
+                        ]
+                        .as_ref(),
+                    )
+                    .split(f.size());
 
-            if title_popup.visible {
-                render_title_popup(f, &title_popup);
-            } else if title_select_popup.visible {
-                render_title_select_popup(f, &title_select_popup);
-            }
+                render_header(f, chunks[0], scrollable_textarea.edit_mode);
+                if scrollable_textarea.full_screen_mode {
+                    scrollable_textarea
+                        .render(f, f.size())
+                        .context("Failed to render")
+                        .unwrap();
+                } else {
+                    scrollable_textarea.render(f, chunks[1]).unwrap();
+                }
 
-            if edit_commands_popup.visible {
-                render_edit_commands_popup(f);
-            }
-        })?;
+                if title_popup.visible {
+                    render_title_popup(f, &title_popup);
+                } else if title_select_popup.visible {
+                    render_title_select_popup(f, &title_select_popup);
+                }
 
-        if let Event::Key(key) = event::read()? {
-            if scrollable_textarea.full_screen_mode {
-                match key.code {
-                    KeyCode::Esc => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.edit_mode = false;
-                        } else {
-                            scrollable_textarea.toggle_full_screen();
+                if edit_commands_popup.visible {
+                    render_edit_commands_popup(f);
+                }
+            })?;
+
+            last_draw = Instant::now();
+        }
+
+        // this helps with flickering of the tui
+        if event::poll(Duration::from_millis(1))? {
+            if let Event::Key(key) = event::read()? {
+                if scrollable_textarea.full_screen_mode {
+                    match key.code {
+                        KeyCode::Esc => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.edit_mode = false;
+                            } else {
+                                scrollable_textarea.toggle_full_screen();
+                            }
+                        }
+                        KeyCode::Enter => {
+                            if !scrollable_textarea.edit_mode {
+                                scrollable_textarea.edit_mode = true;
+                            } else {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .insert_newline();
+                            }
+                        }
+                        KeyCode::Up => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .move_cursor(tui_textarea::CursorMove::Up);
+
+                                if key.modifiers.contains(KeyModifiers::SHIFT)
+                                    && scrollable_textarea.start_sel == 0
+                                {
+                                    let (curr_row, _) = scrollable_textarea.textareas
+                                        [scrollable_textarea.focused_index]
+                                        .cursor();
+                                    scrollable_textarea.start_sel = curr_row;
+                                }
+                            } else {
+                                scrollable_textarea.scroll =
+                                    scrollable_textarea.scroll.saturating_sub(1);
+                            }
+                        }
+                        KeyCode::Down => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .move_cursor(tui_textarea::CursorMove::Down);
+
+                                if key.modifiers.contains(KeyModifiers::SHIFT)
+                                    && scrollable_textarea.start_sel == 0
+                                {
+                                    let (curr_row, _) = scrollable_textarea.textareas
+                                        [scrollable_textarea.focused_index]
+                                        .cursor();
+                                    scrollable_textarea.start_sel = curr_row;
+                                }
+                            } else {
+                                scrollable_textarea.scroll += 1;
+                            }
+                        }
+                        KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
+                                eprintln!("Failed to copy to clipboard: {}", e);
+                            }
+                        }
+                        KeyCode::Char('s')
+                            if key.modifiers.contains(KeyModifiers::ALT)
+                                && key.modifiers.contains(KeyModifiers::SHIFT) =>
+                        {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .start_selection();
+                            }
+                        }
+                        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if let Err(e) = scrollable_textarea.copy_selection_contents() {
+                                eprintln!("Failed to copy to clipboard: {}", e);
+                            }
+                        }
+                        _ => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .input(key);
+                            }
                         }
                     }
-                    KeyCode::Enter => {
-                        if !scrollable_textarea.edit_mode {
-                            scrollable_textarea.edit_mode = true;
-                        } else {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .insert_newline();
+                } else if title_popup.visible {
+                    match key.code {
+                        KeyCode::Enter => {
+                            #[allow(clippy::assigning_clones)]
+                            scrollable_textarea.change_title(title_popup.title.clone());
+                            title_popup.visible = false;
+                            title_popup.title.clear();
                         }
+                        KeyCode::Esc => {
+                            title_popup.visible = false;
+                            title_popup.title.clear();
+                        }
+                        KeyCode::Char(c) => {
+                            title_popup.title.push(c);
+                        }
+                        KeyCode::Backspace => {
+                            title_popup.title.pop();
+                        }
+                        _ => {}
                     }
-                    KeyCode::Up => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .move_cursor(tui_textarea::CursorMove::Up);
-
-                            if key.modifiers.contains(KeyModifiers::SHIFT)
-                                && scrollable_textarea.start_sel == 0
+                } else if title_select_popup.visible {
+                    match key.code {
+                        KeyCode::Enter => {
+                            scrollable_textarea.jump_to_textarea(title_select_popup.selected_index);
+                            title_select_popup.visible = false;
+                        }
+                        KeyCode::Esc => {
+                            title_select_popup.visible = false;
+                            edit_commands_popup.visible = false;
+                        }
+                        KeyCode::Up => {
+                            if title_select_popup.selected_index > 0 {
+                                title_select_popup.selected_index -= 1;
+                            } else {
+                                title_select_popup.selected_index =
+                                    title_select_popup.titles.len() - 1
+                            }
+                        }
+                        KeyCode::Down => {
+                            if title_select_popup.selected_index
+                                < title_select_popup.titles.len() - 1
                             {
-                                let (curr_row, _) = scrollable_textarea.textareas
-                                    [scrollable_textarea.focused_index]
-                                    .cursor();
-                                scrollable_textarea.start_sel = curr_row;
+                                title_select_popup.selected_index += 1;
+                            } else {
+                                title_select_popup.selected_index = 0;
                             }
-                        } else {
-                            scrollable_textarea.scroll =
-                                scrollable_textarea.scroll.saturating_sub(1);
                         }
+                        _ => {}
                     }
-                    KeyCode::Down => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .move_cursor(tui_textarea::CursorMove::Down);
-
-                            if key.modifiers.contains(KeyModifiers::SHIFT)
-                                && scrollable_textarea.start_sel == 0
-                            {
-                                let (curr_row, _) = scrollable_textarea.textareas
-                                    [scrollable_textarea.focused_index]
-                                    .cursor();
-                                scrollable_textarea.start_sel = curr_row;
-                            }
-                        } else {
-                            scrollable_textarea.scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
-                            eprintln!("Failed to copy to clipboard: {}", e);
-                        }
-                    }
-                    KeyCode::Char('s')
-                        if key.modifiers.contains(KeyModifiers::ALT)
-                            && key.modifiers.contains(KeyModifiers::SHIFT) =>
-                    {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .start_selection();
-                        }
-                    }
-                    KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Err(e) = scrollable_textarea.copy_selection_contents() {
-                            eprintln!("Failed to copy to clipboard: {}", e);
-                        }
-                    }
-                    _ => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .input(key);
-                        }
-                    }
-                }
-            } else if title_popup.visible {
-                match key.code {
-                    KeyCode::Enter => {
-                        #[allow(clippy::assigning_clones)]
-                        scrollable_textarea.change_title(title_popup.title.clone());
-                        title_popup.visible = false;
-                        title_popup.title.clear();
-                    }
-                    KeyCode::Esc => {
-                        title_popup.visible = false;
-                        title_popup.title.clear();
-                    }
-                    KeyCode::Char(c) => {
-                        title_popup.title.push(c);
-                    }
-                    KeyCode::Backspace => {
-                        title_popup.title.pop();
-                    }
-                    _ => {}
-                }
-            } else if title_select_popup.visible {
-                match key.code {
-                    KeyCode::Enter => {
-                        scrollable_textarea.jump_to_textarea(title_select_popup.selected_index);
-                        title_select_popup.visible = false;
-                    }
-                    KeyCode::Esc => {
-                        title_select_popup.visible = false;
-                        edit_commands_popup.visible = false;
-                    }
-                    KeyCode::Up => {
-                        if title_select_popup.selected_index > 0 {
-                            title_select_popup.selected_index -= 1;
-                        } else {
-                            title_select_popup.selected_index = title_select_popup.titles.len() - 1
-                        }
-                    }
-                    KeyCode::Down => {
-                        if title_select_popup.selected_index < title_select_popup.titles.len() - 1 {
-                            title_select_popup.selected_index += 1;
-                        } else {
-                            title_select_popup.selected_index = 0;
-                        }
-                    }
-                    _ => {}
-                }
-            } else {
-                match key.code {
-                    KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        let current_content = scrollable_textarea.textareas
-                            [scrollable_textarea.focused_index]
-                            .lines()
-                            .join("\n");
-                        match format_markdown(&current_content) {
-                            Ok(formatted) => {
-                                let mut new_textarea = TextArea::default();
-                                for line in formatted.lines() {
-                                    new_textarea.insert_str(line);
-                                    new_textarea.insert_newline();
+                } else {
+                    match key.code {
+                        KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            let current_content = scrollable_textarea.textareas
+                                [scrollable_textarea.focused_index]
+                                .lines()
+                                .join("\n");
+                            match format_markdown(&current_content) {
+                                Ok(formatted) => {
+                                    let mut new_textarea = TextArea::default();
+                                    for line in formatted.lines() {
+                                        new_textarea.insert_str(line);
+                                        new_textarea.insert_newline();
+                                    }
+                                    scrollable_textarea.textareas
+                                        [scrollable_textarea.focused_index] = new_textarea;
                                 }
-                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
-                                    new_textarea;
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to format Markdown: {}", e);
-                            }
-                        }
-                    }
-                    KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        let current_content = scrollable_textarea.textareas
-                            [scrollable_textarea.focused_index]
-                            .lines()
-                            .join("\n");
-                        match format_json(&current_content) {
-                            Ok(formatted) => {
-                                let mut new_textarea = TextArea::default();
-                                for line in formatted.lines() {
-                                    new_textarea.insert_str(line);
-                                    new_textarea.insert_newline();
+                                Err(e) => {
+                                    eprintln!("Failed to format Markdown: {}", e);
                                 }
-                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
-                                    new_textarea;
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to format json: {}", e);
                             }
                         }
-                    }
-                    // external editor
-                    KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        let current_content = scrollable_textarea.textareas
-                            [scrollable_textarea.focused_index]
-                            .lines()
-                            .join("\n");
-
-                        match edit_with_external_editor(&current_content) {
-                            Ok(edited_content) => {
-                                let mut new_textarea = TextArea::default();
-                                for line in edited_content.lines() {
-                                    new_textarea.insert_str(line);
-                                    new_textarea.insert_newline();
+                        KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            let current_content = scrollable_textarea.textareas
+                                [scrollable_textarea.focused_index]
+                                .lines()
+                                .join("\n");
+                            match format_json(&current_content) {
+                                Ok(formatted) => {
+                                    let mut new_textarea = TextArea::default();
+                                    for line in formatted.lines() {
+                                        new_textarea.insert_str(line);
+                                        new_textarea.insert_newline();
+                                    }
+                                    scrollable_textarea.textareas
+                                        [scrollable_textarea.focused_index] = new_textarea;
                                 }
-                                scrollable_textarea.textareas[scrollable_textarea.focused_index] =
-                                    new_textarea;
+                                Err(e) => {
+                                    eprintln!("Failed to format json: {}", e);
+                                }
+                            }
+                        }
+                        // external editor
+                        KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            let current_content = scrollable_textarea.textareas
+                                [scrollable_textarea.focused_index]
+                                .lines()
+                                .join("\n");
 
-                                // Redraw the terminal after editing
-                                terminal.clear()?;
+                            match edit_with_external_editor(&current_content) {
+                                Ok(edited_content) => {
+                                    let mut new_textarea = TextArea::default();
+                                    for line in edited_content.lines() {
+                                        new_textarea.insert_str(line);
+                                        new_textarea.insert_newline();
+                                    }
+                                    scrollable_textarea.textareas
+                                        [scrollable_textarea.focused_index] = new_textarea;
+
+                                    // Redraw the terminal after editing
+                                    terminal.clear()?;
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to edit with external editor: {}", e);
+                                }
                             }
-                            Err(e) => {
-                                eprintln!("Failed to edit with external editor: {}", e);
+                        }
+                        KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
+                                eprintln!("Failed to copy to clipboard: {}", e);
                             }
                         }
-                    }
-                    KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
-                            eprintln!("Failed to copy to clipboard: {}", e);
+                        // copy highlighted selection
+                        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if let Err(e) = scrollable_textarea.copy_selection_contents() {
+                                eprintln!("Failed to copy to clipboard: {}", e);
+                            }
                         }
-                    }
-                    // copy highlighted selection
-                    KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if let Err(e) = scrollable_textarea.copy_selection_contents() {
-                            eprintln!("Failed to copy to clipboard: {}", e);
-                        }
-                    }
-                    KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        match key.modifiers {
-                            KeyModifiers::CONTROL => {
-                                if scrollable_textarea.edit_mode {
-                                    if let Ok(content) = clipboard.get_contents() {
-                                        let textarea = &mut scrollable_textarea.textareas
-                                            [scrollable_textarea.focused_index];
-                                        for line in content.lines() {
-                                            textarea.insert_str(line);
-                                            textarea.insert_newline();
-                                        }
-                                        // Remove the last extra newline
-                                        if content.ends_with('\n') {
-                                            textarea.delete_char();
+                        KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            match key.modifiers {
+                                KeyModifiers::CONTROL => {
+                                    if scrollable_textarea.edit_mode {
+                                        if let Ok(content) = clipboard.get_contents() {
+                                            let textarea = &mut scrollable_textarea.textareas
+                                                [scrollable_textarea.focused_index];
+                                            for line in content.lines() {
+                                                textarea.insert_str(line);
+                                                textarea.insert_newline();
+                                            }
+                                            // Remove the last extra newline
+                                            if content.ends_with('\n') {
+                                                textarea.delete_char();
+                                            }
                                         }
                                     }
                                 }
+                                KeyModifiers::SUPER | KeyModifiers::HYPER | KeyModifiers::META => {}
+                                _ => {}
                             }
-                            KeyModifiers::SUPER | KeyModifiers::HYPER | KeyModifiers::META => {}
-                            _ => {}
                         }
-                    }
-                    KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if !scrollable_textarea.edit_mode {
-                            scrollable_textarea.toggle_full_screen();
+                        KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if !scrollable_textarea.edit_mode {
+                                scrollable_textarea.toggle_full_screen();
+                            }
                         }
-                    }
-                    // edit commands
-                    KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        // Toggle the visibility of the edit commands popup
-                        if scrollable_textarea.edit_mode {
-                            edit_commands_popup.visible = !edit_commands_popup.visible;
+                        // edit commands
+                        KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            // Toggle the visibility of the edit commands popup
+                            if scrollable_textarea.edit_mode {
+                                edit_commands_popup.visible = !edit_commands_popup.visible;
+                            }
                         }
-                    }
-                    KeyCode::Char('s')
-                        if key.modifiers.contains(KeyModifiers::CONTROL)
-                            && !key.modifiers.contains(KeyModifiers::SHIFT) =>
-                    {
-                        #[allow(clippy::assigning_clones)]
-                        title_select_popup
-                            .titles
-                            .clone_from(&scrollable_textarea.titles);
-                        title_select_popup.selected_index = 0;
-                        title_select_popup.visible = true;
-                    }
-                    KeyCode::Char('q') => {
-                        // allow q in edit mode
-                        if !scrollable_textarea.edit_mode {
-                            save_textareas(
-                                &scrollable_textarea.textareas,
-                                &scrollable_textarea.titles,
-                            )?;
-                            break;
-                        }
-                        scrollable_textarea.textareas[scrollable_textarea.focused_index].input(key);
-                    }
-                    KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if !scrollable_textarea.edit_mode {
-                            scrollable_textarea
-                                .add_textarea(TextArea::default(), String::from("New Textarea"));
-                            scrollable_textarea.adjust_scroll_to_focused();
-                        }
-                    }
-                    KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if scrollable_textarea.textareas.len() > 1 && !scrollable_textarea.edit_mode
+                        KeyCode::Char('s')
+                            if key.modifiers.contains(KeyModifiers::CONTROL)
+                                && !key.modifiers.contains(KeyModifiers::SHIFT) =>
                         {
-                            scrollable_textarea.remove_textarea(scrollable_textarea.focused_index);
+                            #[allow(clippy::assigning_clones)]
+                            title_select_popup
+                                .titles
+                                .clone_from(&scrollable_textarea.titles);
+                            title_select_popup.selected_index = 0;
+                            title_select_popup.visible = true;
                         }
-                    }
-                    // move cursor to the top
-                    KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .move_cursor(tui_textarea::CursorMove::Top);
-                        }
-                    }
-                    KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        title_popup.visible = true;
-                        #[allow(clippy::assigning_clones)]
-                        title_popup.title.clone_from(
-                            &scrollable_textarea.titles[scrollable_textarea.focused_index],
-                        );
-                    }
-                    KeyCode::Enter => {
-                        if scrollable_textarea.edit_mode {
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .insert_newline();
-                        } else {
-                            scrollable_textarea.edit_mode = true;
-                        }
-                    }
-                    KeyCode::Esc => {
-                        scrollable_textarea.edit_mode = false;
-                        edit_commands_popup.visible = false;
-                    }
-                    KeyCode::Up => {
-                        if scrollable_textarea.edit_mode {
-                            let textarea = &mut scrollable_textarea.textareas
-                                [scrollable_textarea.focused_index];
-                            if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                if scrollable_textarea.start_sel == usize::MAX {
-                                    let (curr_row, _) = textarea.cursor();
-                                    scrollable_textarea.start_sel = curr_row;
-                                    textarea.start_selection();
-                                }
-                                if textarea.cursor().0 > 0 {
-                                    textarea.move_cursor(tui_textarea::CursorMove::Up);
-                                }
-                            } else {
-                                textarea.move_cursor(tui_textarea::CursorMove::Up);
-                                scrollable_textarea.start_sel = usize::MAX;
-                                textarea.cancel_selection();
+                        KeyCode::Char('q') => {
+                            // allow q in edit mode
+                            if !scrollable_textarea.edit_mode {
+                                save_textareas(
+                                    &scrollable_textarea.textareas,
+                                    &scrollable_textarea.titles,
+                                )?;
+                                break;
                             }
-                        } else {
-                            scrollable_textarea.move_focus(-1);
-                        }
-                    }
-                    KeyCode::Down => {
-                        if scrollable_textarea.edit_mode {
-                            let textarea = &mut scrollable_textarea.textareas
-                                [scrollable_textarea.focused_index];
-                            if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                if scrollable_textarea.start_sel == usize::MAX {
-                                    let (curr_row, _) = textarea.cursor();
-                                    scrollable_textarea.start_sel = curr_row;
-                                    textarea.start_selection();
-                                }
-                                if textarea.cursor().0 < textarea.lines().len() - 1 {
-                                    textarea.move_cursor(tui_textarea::CursorMove::Down);
-                                }
-                            } else {
-                                textarea.move_cursor(tui_textarea::CursorMove::Down);
-                                scrollable_textarea.start_sel = usize::MAX;
-                                textarea.cancel_selection();
-                            }
-                        } else {
-                            scrollable_textarea.move_focus(1);
-                        }
-                    }
-                    _ => {
-                        if scrollable_textarea.edit_mode {
                             scrollable_textarea.textareas[scrollable_textarea.focused_index]
                                 .input(key);
-                            scrollable_textarea.start_sel = usize::MAX;
-                            scrollable_textarea.textareas[scrollable_textarea.focused_index]
-                                .cancel_selection();
+                        }
+                        KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if !scrollable_textarea.edit_mode {
+                                scrollable_textarea.add_textarea(
+                                    TextArea::default(),
+                                    String::from("New Textarea"),
+                                );
+                                scrollable_textarea.adjust_scroll_to_focused();
+                            }
+                        }
+                        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if scrollable_textarea.textareas.len() > 1
+                                && !scrollable_textarea.edit_mode
+                            {
+                                scrollable_textarea
+                                    .remove_textarea(scrollable_textarea.focused_index);
+                            }
+                        }
+                        // move cursor to the top
+                        KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .move_cursor(tui_textarea::CursorMove::Top);
+                            }
+                        }
+                        KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            title_popup.visible = true;
+                            #[allow(clippy::assigning_clones)]
+                            title_popup.title.clone_from(
+                                &scrollable_textarea.titles[scrollable_textarea.focused_index],
+                            );
+                        }
+                        KeyCode::Enter => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .insert_newline();
+                            } else {
+                                scrollable_textarea.edit_mode = true;
+                            }
+                        }
+                        KeyCode::Esc => {
+                            scrollable_textarea.edit_mode = false;
+                            edit_commands_popup.visible = false;
+                        }
+                        KeyCode::Up => {
+                            if scrollable_textarea.edit_mode {
+                                let textarea = &mut scrollable_textarea.textareas
+                                    [scrollable_textarea.focused_index];
+                                if key.modifiers.contains(KeyModifiers::SHIFT) {
+                                    if scrollable_textarea.start_sel == usize::MAX {
+                                        let (curr_row, _) = textarea.cursor();
+                                        scrollable_textarea.start_sel = curr_row;
+                                        textarea.start_selection();
+                                    }
+                                    if textarea.cursor().0 > 0 {
+                                        textarea.move_cursor(tui_textarea::CursorMove::Up);
+                                    }
+                                } else {
+                                    textarea.move_cursor(tui_textarea::CursorMove::Up);
+                                    scrollable_textarea.start_sel = usize::MAX;
+                                    textarea.cancel_selection();
+                                }
+                            } else {
+                                scrollable_textarea.move_focus(-1);
+                            }
+                        }
+                        KeyCode::Down => {
+                            if scrollable_textarea.edit_mode {
+                                let textarea = &mut scrollable_textarea.textareas
+                                    [scrollable_textarea.focused_index];
+                                if key.modifiers.contains(KeyModifiers::SHIFT) {
+                                    if scrollable_textarea.start_sel == usize::MAX {
+                                        let (curr_row, _) = textarea.cursor();
+                                        scrollable_textarea.start_sel = curr_row;
+                                        textarea.start_selection();
+                                    }
+                                    if textarea.cursor().0 < textarea.lines().len() - 1 {
+                                        textarea.move_cursor(tui_textarea::CursorMove::Down);
+                                    }
+                                } else {
+                                    textarea.move_cursor(tui_textarea::CursorMove::Down);
+                                    scrollable_textarea.start_sel = usize::MAX;
+                                    textarea.cancel_selection();
+                                }
+                            } else {
+                                scrollable_textarea.move_focus(1);
+                            }
+                        }
+                        _ => {
+                            if scrollable_textarea.edit_mode {
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .input(key);
+                                scrollable_textarea.start_sel = usize::MAX;
+                                scrollable_textarea.textareas[scrollable_textarea.focused_index]
+                                    .cancel_selection();
+                            }
                         }
                     }
                 }
