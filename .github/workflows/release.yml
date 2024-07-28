@@ -154,7 +154,7 @@ jobs:
         # Verify the RPM was created
         ls -l dist/${{ matrix.asset_name }}.rpm || echo "RPM file not found"    
         
-    - name: Upload Release Asset
+    - name: Upload Release Asset (tar.gz)
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -163,6 +163,28 @@ jobs:
         asset_path: ./dist/${{ matrix.asset_name }}.tar.gz
         asset_name: ${{ matrix.asset_name }}.tar.gz
         asset_content_type: application/gzip
+
+    - name: Upload Release Asset (deb)
+      if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: ./dist/${{ matrix.asset_name }}.deb
+        asset_name: ${{ matrix.asset_name }}.deb
+        asset_content_type: application/vnd.debian.binary-package
+
+    - name: Upload Release Asset (rpm)
+      if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: ./dist/${{ matrix.asset_name }}.rpm
+        asset_name: ${{ matrix.asset_name }}.rpm
+        asset_content_type: application/x-rpm
 
   publish_to_cargo:
     name: Publish to Cargo
