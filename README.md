@@ -43,15 +43,40 @@ Seems like a fitting name for a persistent scratchpad :).
 If you have `cargo` installed on your machine, you can download directly from crates.io 
 
 ```bash 
-cargo install thoth-cli
+cargo install thoth-cli --locked
+```
+
+### Debian/Ubuntu
+You can install the `.deb` for your platform by doing the following (note: the URL is an example. To get the latest release please look at the [Releases](https://github.com/jooaf/thoth/releases) section)
+
+```bash
+# x86-64
+curl -LO https://github.com/jooaf/thoth/releases/download/v0.1.30/thoth_0.1.30_linux_amd64.deb
+sudo dpkg -i thoth_0.1.30_linux_amd64.deb
+
+# ARM64
+curl -LO https://github.com/jooaf/thoth/releases/download/v0.1.30/thoth_0.1.30_linux_arm64.deb
+sudo dpkg -i thoth_0.1.30_linux_arm64.deb
+```
+
+### Fedora/CentOS
+You can install the `.rpm` for your platform by doing the following (note: the URL is an example. To get the latest release please look at the [Releases](https://github.com/jooaf/thoth/releases) section)
+
+```bash
+# x86-64
+https://github.com/jooaf/thoth/releases/download/v0.1.30/thoth_0.1.30_linux_amd64.rpm
+sudo rpm -i thoth_0.1.30_linux_amd64.rpm
+
+# ARM64
+curl -LO https://github.com/jooaf/thoth/releases/download/v0.1.30/thoth_0.1.30_linux_arm64.rpm
+sudo dpkg -i thoth_0.1.30_linux_arm64.rpm
 ```
 
 ### From binaries via Release section
-Go to the release page, and download the binary associated with your OS (Note: currently supports Linux and MacOS). 
-Once you have downloaded the binary, go to the location where you downloaded the binary, rename the binary to `thoth`, and give the binary executable permissions by doing the following:
+Go to the [releases](https://github.com/jooaf/thoth/releases) page, and download the `.tar.gz` associated with your OS (Note: currently supports Linux and MacOS). 
+Once you have downloaded the zip file, go to the location where you downloaded the file, uncompress, and give the binary executable permissions by doing the following:
 ```bash
 cd /path/to/binary
-mv current_binary_name thoth
 chmod +x thoth
 ```
 You can then move binary if you choose so. Finally, add the path of the binary to your `$PATH`. 
