@@ -322,7 +322,7 @@ fn run_ui() -> Result<()> {
     let mut clipboard = ClipboardContext::new().expect("Failed to initialize clipboard");
 
     let mut last_draw = Instant::now();
-    let draw_interval = Duration::from_millis(23);
+    let draw_interval = Duration::from_millis(33);
 
     loop {
         let should_draw = last_draw.elapsed() >= draw_interval;

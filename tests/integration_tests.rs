@@ -94,10 +94,12 @@ fn test_scrollable_textarea_scroll_behavior() {
 
 #[test]
 fn test_markdown_renderer_with_code_blocks() {
-    let renderer = thoth_cli::MarkdownRenderer::new();
+    let mut renderer = thoth_cli::MarkdownRenderer::new();
     let markdown =
         "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```".to_string();
-    let rendered = renderer.render_markdown(&markdown, 40).unwrap();
+    let rendered = renderer
+        .render_markdown(markdown, "".to_string(), 40)
+        .unwrap();
 
     assert!(rendered.lines.len() > 5);
     assert!(rendered.lines[0]

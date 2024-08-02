@@ -1,4 +1,9 @@
-use std::cmp::{max, min};
+use std::{
+    cell::RefCell,
+    cmp::{max, min},
+    collections::HashMap,
+    rc::Rc,
+};
 
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
@@ -8,11 +13,48 @@ use rand::Rng;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
+    text::Text,
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 use std::collections::HashSet;
 use tui_textarea::TextArea;
+
+const RENDER_CACHE_SIZE: usize = 100;
+
+struct MarkdownCache {
+    cache: HashMap<String, Text<'static>>,
+    renderer: MarkdownRenderer,
+}
+
+impl MarkdownCache {
+    fn new() -> Self {
+        MarkdownCache {
+            cache: HashMap::with_capacity(RENDER_CACHE_SIZE),
+            renderer: MarkdownRenderer::new(),
+        }
+    }
+
+    fn get_or_render(&mut self, content: &str, title: &str, width: usize) -> Result<Text<'static>> {
+        let cache_key = format!("{}:{}", title, content);
+        if let Some(cached) = self.cache.get(&cache_key) {
+            return Ok(cached.clone());
+        }
+
+        let rendered =
+            self.renderer
+                .render_markdown(content.to_string(), title.to_string(), width)?;
+
+        if self.cache.len() >= RENDER_CACHE_SIZE {
+            if let Some(old_key) = self.cache.keys().next().cloned() {
+                self.cache.remove(&old_key);
+            }
+        }
+
+        self.cache.insert(cache_key, rendered.clone());
+        Ok(rendered)
+    }
+}
 
 pub struct ScrollableTextArea {
     pub textareas: Vec<TextArea<'static>>,
@@ -23,7 +65,7 @@ pub struct ScrollableTextArea {
     pub full_screen_mode: bool,
     pub viewport_height: u16,
     pub start_sel: usize,
-    pub markdown_renderer: MarkdownRenderer,
+    markdown_cache: Rc<RefCell<MarkdownCache>>,
 }
 
 impl Default for ScrollableTextArea {
@@ -43,7 +85,7 @@ impl ScrollableTextArea {
             full_screen_mode: false,
             viewport_height: 0,
             start_sel: 0,
-            markdown_renderer: MarkdownRenderer::new(),
+            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new())),
         }
     }
 
@@ -277,7 +319,7 @@ impl ScrollableTextArea {
                 };
 
                 let block = Block::default()
-                    .title(title.clone())
+                    .title(title.to_owned())
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ORANGE))
                     .style(style);
@@ -289,9 +331,11 @@ impl ScrollableTextArea {
                     f.render_widget(textarea.widget(), *chunk);
                 } else {
                     let content = textarea.lines().join("\n");
-                    let rendered_markdown = self
-                        .markdown_renderer
-                        .render_markdown(&content, f.size().width as usize - 2)?;
+                    let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(
+                        &content,
+                        title,
+                        f.size().width as usize - 2,
+                    )?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
                         .wrap(Wrap { trim: true });
@@ -299,6 +343,7 @@ impl ScrollableTextArea {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -313,9 +358,11 @@ impl ScrollableTextArea {
             .border_style(Style::default().fg(ORANGE));
 
         let content = textarea.lines().join("\n");
-        let rendered_markdown = self
-            .markdown_renderer
-            .render_markdown(&content, f.size().width as usize - 2)?;
+        let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(
+            &content,
+            title,
+            f.size().width as usize - 2,
+        )?;
 
         let paragraph = Paragraph::new(rendered_markdown)
             .block(block)
@@ -325,30 +372,29 @@ impl ScrollableTextArea {
         f.render_widget(paragraph, area);
         Ok(())
     }
-
-    #[cfg(test)]
-    pub fn with_textareas(textareas: Vec<TextArea<'static>>, titles: Vec<String>) -> Self {
-        ScrollableTextArea {
-            textareas,
-            titles,
-            scroll: 0,
-            focused_index: 0,
-            edit_mode: false,
-            full_screen_mode: false,
-            viewport_height: 0,
-            start_sel: 0,
-            markdown_renderer: MarkdownRenderer::new(),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn create_test_textarea() -> ScrollableTextArea {
+        ScrollableTextArea {
+            textareas: Vec::new(),
+            titles: Vec::new(),
+            scroll: 0,
+            focused_index: 0,
+            edit_mode: false,
+            full_screen_mode: false,
+            viewport_height: 0,
+            start_sel: 0,
+            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new())),
+        }
+    }
+
     #[test]
     fn test_add_textarea() {
-        let mut sta = ScrollableTextArea::new();
+        let mut sta = create_test_textarea();
         sta.add_textarea(TextArea::default(), "Test".to_string());
         assert_eq!(sta.textareas.len(), 1);
         assert_eq!(sta.titles.len(), 1);
@@ -357,10 +403,9 @@ mod tests {
 
     #[test]
     fn test_move_focus() {
-        let mut sta = ScrollableTextArea::with_textareas(
-            vec![TextArea::default(), TextArea::default()],
-            vec!["Test1".to_string(), "Test2".to_string()],
-        );
+        let mut sta = create_test_textarea();
+        sta.add_textarea(TextArea::default(), "Test1".to_string());
+        sta.add_textarea(TextArea::default(), "Test2".to_string());
         sta.move_focus(1);
         assert_eq!(sta.focused_index, 1);
         sta.move_focus(-1);
@@ -369,10 +414,9 @@ mod tests {
 
     #[test]
     fn test_remove_textarea() {
-        let mut sta = ScrollableTextArea::with_textareas(
-            vec![TextArea::default(), TextArea::default()],
-            vec!["Test1".to_string(), "Test2".to_string()],
-        );
+        let mut sta = create_test_textarea();
+        sta.add_textarea(TextArea::default(), "Test1".to_string());
+        sta.add_textarea(TextArea::default(), "Test2".to_string());
         sta.remove_textarea(0);
         assert_eq!(sta.textareas.len(), 1);
         assert_eq!(sta.titles.len(), 1);
@@ -381,15 +425,15 @@ mod tests {
 
     #[test]
     fn test_change_title() {
-        let mut sta =
-            ScrollableTextArea::with_textareas(vec![TextArea::default()], vec!["Test".to_string()]);
+        let mut sta = create_test_textarea();
+        sta.add_textarea(TextArea::default(), "Test".to_string());
         sta.change_title("New Title".to_string());
         assert_eq!(sta.titles[0], "New Title");
     }
 
     #[test]
     fn test_toggle_full_screen() {
-        let mut sta = ScrollableTextArea::new();
+        let mut sta = create_test_textarea();
         assert!(!sta.full_screen_mode);
         sta.toggle_full_screen();
         assert!(sta.full_screen_mode);
@@ -398,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_copy_textarea_contents() {
-        let mut sta = ScrollableTextArea::new();
+        let mut sta = create_test_textarea();
         let mut textarea = TextArea::default();
         textarea.insert_str("Test content");
         sta.add_textarea(textarea, "Test".to_string());
@@ -420,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_jump_to_textarea() {
-        let mut sta = ScrollableTextArea::new();
+        let mut sta = create_test_textarea();
         sta.add_textarea(TextArea::default(), "Test1".to_string());
         sta.add_textarea(TextArea::default(), "Test2".to_string());
         sta.jump_to_textarea(1);

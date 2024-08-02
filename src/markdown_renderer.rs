@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Result};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -13,6 +15,7 @@ pub struct MarkdownRenderer {
     syntax_set: SyntaxSet,
     theme_set: ThemeSet,
     theme: String,
+    cache: HashMap<String, Text<'static>>,
 }
 
 impl Default for MarkdownRenderer {
@@ -27,10 +30,20 @@ impl MarkdownRenderer {
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme_set: ThemeSet::load_defaults(),
             theme: "base16-mocha.dark".to_string(),
+            cache: HashMap::new(),
         }
     }
 
-    pub fn render_markdown<'a>(&self, markdown: &'a str, width: usize) -> Result<Text<'a>> {
+    pub fn render_markdown(
+        &mut self,
+        markdown: String,
+        title: String,
+        width: usize,
+    ) -> Result<Text<'static>> {
+        if let Some(lines) = self.cache.get(&title) {
+            return Ok(lines.clone());
+        }
+
         let md_syntax = self.syntax_set.find_syntax_by_extension("md").unwrap();
         let mut lines = Vec::new();
         let mut in_code_block = false;
@@ -54,7 +67,7 @@ impl MarkdownRenderer {
         {
             let json_syntax = self.syntax_set.find_syntax_by_extension("json").unwrap();
             return Ok(Text::from(self.highlight_code_block(
-                &markdown.lines().collect::<Vec<_>>(),
+                &markdown.lines().map(|x| x.to_string()).collect::<Vec<_>>(),
                 "json",
                 json_syntax,
                 theme,
@@ -62,7 +75,8 @@ impl MarkdownRenderer {
             )?));
         }
 
-        let mut markdown_lines = markdown.lines().peekable();
+        let updated_markdown = markdown.clone();
+        let mut markdown_lines = updated_markdown.lines().map(|x| x.to_string()).peekable();
         while let Some(line) = markdown_lines.next() {
             if line.starts_with("```") {
                 if in_code_block {
@@ -72,7 +86,7 @@ impl MarkdownRenderer {
                         .find_syntax_by_token(&code_block_lang)
                         .unwrap_or(md_syntax);
                     lines.extend(self.highlight_code_block(
-                        &code_block_content,
+                        &code_block_content.clone(),
                         &code_block_lang,
                         syntax,
                         theme,
@@ -94,7 +108,7 @@ impl MarkdownRenderer {
                                 .find_syntax_by_token(&code_block_lang)
                                 .unwrap_or(md_syntax);
                             lines.extend(self.highlight_code_block(
-                                &[""],
+                                &["".to_string()],
                                 &code_block_lang,
                                 syntax,
                                 theme,
@@ -107,10 +121,10 @@ impl MarkdownRenderer {
                     }
                 }
             } else if in_code_block {
-                code_block_content.push(line);
+                code_block_content.push(line.to_string());
             } else {
                 let highlighted = h
-                    .highlight_line(line, &self.syntax_set)
+                    .highlight_line(&line, &self.syntax_set)
                     .map_err(|e| anyhow!("Highlight error: {}", e))?;
                 let mut spans: Vec<Span> = highlighted.into_iter().map(into_span).collect();
 
@@ -142,17 +156,19 @@ impl MarkdownRenderer {
             }
         }
 
-        Ok(Text::from(lines))
+        let markdown_lines = Text::from(lines);
+        self.cache.insert(title.clone(), markdown_lines.clone());
+        Ok(markdown_lines)
     }
 
-    fn highlight_code_block<'a>(
+    fn highlight_code_block(
         &self,
-        code: &[&str],
+        code: &[String],
         lang: &str,
         syntax: &SyntaxReference,
         theme: &syntect::highlighting::Theme,
         width: usize,
-    ) -> Result<Vec<Line<'a>>> {
+    ) -> Result<Vec<Line<'static>>> {
         let mut h = HighlightLines::new(syntax, theme);
         let mut result = Vec::new();
 
@@ -244,9 +260,11 @@ mod tests {
 
     #[test]
     fn test_render_markdown() {
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let markdown = "# Header\n\nThis is **bold** and *italic* text.";
-        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+        let rendered = renderer
+            .render_markdown(markdown.to_string(), "".to_string(), 40)
+            .unwrap();
 
         assert!(rendered.lines.len() >= 3);
         assert!(rendered.lines[0]
@@ -269,10 +287,12 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_code_block() {
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let markdown = "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
-        let rendered = renderer.render_markdown(markdown, 40).unwrap();
 
+        let rendered = renderer
+            .render_markdown(markdown.to_string(), "".to_string(), 40)
+            .unwrap();
         assert!(rendered.lines.len() > 5);
         assert!(rendered.lines[0]
             .spans
@@ -286,13 +306,16 @@ mod tests {
 
     #[test]
     fn test_render_json() {
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let json = r#"{
   "name": "John Doe",
   "age": 30,
   "city": "New York"
 }"#;
-        let rendered = renderer.render_markdown(json, 40).unwrap();
+
+        let rendered = renderer
+            .render_markdown(json.to_string(), "".to_string(), 40)
+            .unwrap();
 
         assert!(rendered.lines.len() == 5);
         assert!(rendered.lines[0]
@@ -307,9 +330,11 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_one_line_code_block() {
-        let renderer = MarkdownRenderer::new();
-        let markdown = "# Header\n\n```rust\n```\n\nText after.";
-        let rendered = renderer.render_markdown(markdown, 40).unwrap();
+        let mut renderer = MarkdownRenderer::new();
+        let markdown = "# Header\n\n```rust\n```\n\nText after.".to_string();
+        let rendered = renderer
+            .render_markdown(markdown, "".to_string(), 40)
+            .unwrap();
 
         assert!(rendered.lines.len() > 3);
         assert!(rendered.lines[0]

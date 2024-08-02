@@ -27,6 +27,7 @@ tempfile = "3.2"
 syntect-tui = "3.0.2"
 unicode-width = "0.1.10"
 rand = "0.8.5"
+once_cell = "1.19.0"
 
 [[bin]]
 name = "thoth"

@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "thoth-cli"
-version = "0.1.25"
+version = "0.1.31"
 dependencies = [
  "anyhow",
  "atty",
@@ -1395,6 +1395,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "mockall",
+ "once_cell",
  "pulldown-cmark",
  "pulldown-cmark-to-cmark",
  "rand",
