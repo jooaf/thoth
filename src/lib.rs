@@ -4,12 +4,14 @@ pub mod scrollable_textarea;
 pub mod title_popup;
 pub mod title_select_popup;
 pub mod ui;
+pub mod utils;
 
 pub use formatter::{format_json, format_markdown};
 pub use markdown_renderer::MarkdownRenderer;
 pub use scrollable_textarea::ScrollableTextArea;
 pub use title_popup::TitlePopup;
 pub use title_select_popup::TitleSelectPopup;
+pub use utils::{load_textareas, save_textareas};
 
 use dirs::home_dir;
 use std::path::PathBuf;
