@@ -14,8 +14,8 @@ use std::{
 use thoth_cli::{
     format_json, format_markdown, get_save_file_path,
     ui::{
-        render_edit_commands_popup, render_header, render_title_popup, render_title_select_popup,
-        EditCommandsPopup,
+        render_edit_commands_popup, render_error_popup, render_header, render_title_popup,
+        render_title_select_popup, EditCommandsPopup, ErrorPopup,
     },
     ScrollableTextArea, TitlePopup, TitleSelectPopup,
 };
@@ -307,6 +307,7 @@ fn run_ui() -> Result<()> {
     let mut scrollable_textarea = ScrollableTextArea::new();
     let mut title_popup = TitlePopup::new();
     let mut edit_commands_popup = EditCommandsPopup::new();
+    let mut error_popup = ErrorPopup::new();
 
     if get_save_file_path().exists() {
         let (loaded_textareas, loaded_titles) = load_textareas()?;
@@ -359,6 +360,10 @@ fn run_ui() -> Result<()> {
                 if edit_commands_popup.visible {
                     render_edit_commands_popup(f);
                 }
+
+                if error_popup.visible {
+                    render_error_popup(f, &error_popup);
+                }
             })?;
 
             last_draw = Instant::now();
@@ -367,6 +372,13 @@ fn run_ui() -> Result<()> {
         // this helps with flickering of the tui
         if event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()? {
+                if error_popup.visible {
+                    if key.code == KeyCode::Esc || key.code == KeyCode::Enter {
+                        error_popup.hide();
+                    }
+                    continue;
+                }
+
                 if scrollable_textarea.full_screen_mode {
                     match key.code {
                         KeyCode::Esc => {
@@ -421,7 +433,7 @@ fn run_ui() -> Result<()> {
                         }
                         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
-                                eprintln!("Failed to copy to clipboard: {}", e);
+                                error_popup.show(format!("Failed to copy to clipboard: {}", e));
                             }
                         }
                         KeyCode::Char('s')
@@ -435,7 +447,7 @@ fn run_ui() -> Result<()> {
                         }
                         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             if let Err(e) = scrollable_textarea.copy_selection_contents() {
-                                eprintln!("Failed to copy to clipboard: {}", e);
+                                error_popup.show(format!("Failed to copy to clipboard: {}", e));
                             }
                         }
                         _ => {
@@ -512,7 +524,7 @@ fn run_ui() -> Result<()> {
                                         [scrollable_textarea.focused_index] = new_textarea;
                                 }
                                 Err(e) => {
-                                    eprintln!("Failed to format Markdown: {}", e);
+                                    error_popup.show(format!("Failed to format markdown: {}", e));
                                 }
                             }
                         }
@@ -532,7 +544,7 @@ fn run_ui() -> Result<()> {
                                         [scrollable_textarea.focused_index] = new_textarea;
                                 }
                                 Err(e) => {
-                                    eprintln!("Failed to format json: {}", e);
+                                    error_popup.show(format!("Failed to format json: {}", e));
                                 }
                             }
                         }
@@ -557,19 +569,22 @@ fn run_ui() -> Result<()> {
                                     terminal.clear()?;
                                 }
                                 Err(e) => {
-                                    eprintln!("Failed to edit with external editor: {}", e);
+                                    error_popup.show(format!(
+                                        "Failed to edit with external editor: {}",
+                                        e
+                                    ));
                                 }
                             }
                         }
                         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             if let Err(e) = scrollable_textarea.copy_focused_textarea_contents() {
-                                eprintln!("Failed to copy to clipboard: {}", e);
+                                error_popup.show(format!("Failed to copy to clipboard: {}", e));
                             }
                         }
                         // copy highlighted selection
                         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             if let Err(e) = scrollable_textarea.copy_selection_contents() {
-                                eprintln!("Failed to copy to clipboard: {}", e);
+                                error_popup.show(format!("Failed to copy to clipboard: {}", e));
                             }
                         }
                         KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -740,7 +755,7 @@ fn run_ui() -> Result<()> {
     Ok(())
 }
 
-fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
+fn save_textareas(textareas: &[TextArea], titles: &[String]) -> Result<()> {
     let mut file = File::create(get_save_file_path())?;
     for (textarea, title) in textareas.iter().zip(titles.iter()) {
         writeln!(file, "# {}", title)?;
@@ -760,7 +775,7 @@ fn save_textareas(textareas: &[TextArea], titles: &[String]) -> io::Result<()> {
     Ok(())
 }
 
-fn load_textareas() -> io::Result<(Vec<TextArea<'static>>, Vec<String>)> {
+fn load_textareas() -> Result<(Vec<TextArea<'static>>, Vec<String>)> {
     let file = File::open(get_save_file_path())?;
     let reader = BufReader::new(file);
     let mut textareas = Vec::with_capacity(10);

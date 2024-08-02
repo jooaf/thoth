@@ -23,6 +23,35 @@ impl Default for EditCommandsPopup {
     }
 }
 
+pub struct ErrorPopup {
+    pub message: String,
+    pub visible: bool,
+}
+
+impl ErrorPopup {
+    pub fn new() -> Self {
+        ErrorPopup {
+            message: String::new(),
+            visible: false,
+        }
+    }
+
+    pub fn show(&mut self, message: String) {
+        self.message = message;
+        self.visible = true;
+    }
+
+    pub fn hide(&mut self) {
+        self.visible = false;
+    }
+}
+
+impl Default for ErrorPopup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn render_edit_commands_popup(f: &mut Frame) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
@@ -195,6 +224,25 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
         .wrap(ratatui::widgets::Wrap { trim: true });
 
     f.render_widget(paragraph, area);
+}
+
+pub fn render_error_popup(f: &mut Frame, popup: &ErrorPopup) {
+    if !popup.visible {
+        return;
+    }
+
+    let area = centered_rect(60, 20, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let text = Paragraph::new(popup.message.as_str())
+        .style(Style::default().fg(Color::Red))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Red))
+                .title("Error"),
+        );
+    f.render_widget(text, area);
 }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
