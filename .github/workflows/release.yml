@@ -226,3 +226,44 @@ jobs:
           }
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  update_homebrew_formula:
+    name: Update Homebrew Formula
+    needs: [create_release, build_and_release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-thoth
+        uses: actions/checkout@v3
+        with:
+          repository: jooaf/homebrew-thoth
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-thoth
+
+      - name: Update formula
+        run: |
+          cd homebrew-thoth
+          cat << EOF > thoth.rb
+          class Thoth < Formula
+            desc "Description of your Thoth project"
+            homepage "https://github.com/jooaf/thoth"
+            url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz"
+            sha256 "${{ needs.build_and_release.outputs.darwin_amd64_sha256 }}"
+            license "MIT"
+
+            def install
+              bin.install "thoth"
+            end
+
+            test do
+              assert_match "thoth version ${{ github.event.inputs.version }}", shell_output("#{bin}/thoth --version")
+            end
+          end
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-thoth
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add thoth.rb
+          git commit -m "Update Thoth to ${{ github.event.inputs.version }}"
+          git push
