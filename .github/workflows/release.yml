@@ -172,8 +172,10 @@ jobs:
         asset_name: ${{ matrix.asset_name }}.rpm
         asset_content_type: application/x-rpm
 
-    outputs:
-      ${{ matrix.asset_name }}_sha256: ${{ steps.calc_sha256.outputs.sha256 }}
+    - name: Output SHA256
+      run: |
+        echo "${{ matrix.asset_name }}=${{ steps.calc_sha256.outputs.sha256 }}" >> $GITHUB_OUTPUT
+      id: output_sha256
 
   publish_to_cargo:
     name: Publish to Cargo
@@ -229,6 +231,9 @@ jobs:
           path: homebrew-thoth
 
       - name: Update formula
+        env:
+          DARWIN_AMD64_SHA256: ${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_amd64 }}
+          DARWIN_ARM64_SHA256: ${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_arm64 }}
         run: |
           cd homebrew-thoth
           cat << EOF > thoth.rb
@@ -236,13 +241,13 @@ jobs:
             desc "A terminal scratchpad akin to Heynote"
             homepage "https://github.com/jooaf/thoth"
             url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz"
-            sha256 "${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_amd64_sha256 }}"
+            sha256 "${DARWIN_AMD64_SHA256}"
             license "MIT"
 
             on_macos do
               on_arm do
                 url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz"
-                sha256 "${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_arm64_sha256 }}"
+                sha256 "${DARWIN_ARM64_SHA256}"
               end
             end
 
