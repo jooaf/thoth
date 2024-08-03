@@ -67,6 +67,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Calculate SHA256
+      run: |
+        echo "${{ matrix.asset_name }}_sha256=$(shasum -a 256 dist/${{ matrix.asset_name }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+      id: calc_sha256
     
     - name: Install Rust
       uses: actions-rs/toolchain@v1
@@ -186,6 +191,9 @@ jobs:
         asset_name: ${{ matrix.asset_name }}.rpm
         asset_content_type: application/x-rpm
 
+    outputs:
+      darwin_amd64_sha256: ${{ steps.calc_sha256.outputs.thoth_${{ github.event.inputs.version }}_darwin_amd64_sha256 }}
+      darwin_arm64_sha256: ${{ steps.calc_sha256.outputs.thoth_${{ github.event.inputs.version }}_darwin_arm64_sha256 }}
   publish_to_cargo:
     name: Publish to Cargo
     needs: create_release
@@ -226,6 +234,8 @@ jobs:
           }
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    
   update_homebrew_formula:
     name: Update Homebrew Formula
     needs: [create_release, build_and_release]
@@ -243,11 +253,18 @@ jobs:
           cd homebrew-thoth
           cat << EOF > thoth.rb
           class Thoth < Formula
-            desc "Description of your Thoth project"
+            desc "A terminal scratchpad akin to Heynote"
             homepage "https://github.com/jooaf/thoth"
             url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz"
             sha256 "${{ needs.build_and_release.outputs.darwin_amd64_sha256 }}"
             license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz"
+                sha256 "${{ needs.build_and_release.outputs.darwin_arm64_sha256 }}"
+              end
+            end
 
             def install
               bin.install "thoth"
