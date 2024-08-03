@@ -1,4 +1,4 @@
 # This CODEOWNERS file requires approval from either jooaf or jafriyie1 for all changes
 
 # Global rule: require approval from at least one of the users for all files
-*       @jooaf @jafriyie1
+*       @jooaf
