@@ -39,13 +39,13 @@ Seems like a fitting name for a persistent scratchpad :).
 - [clap](https://github.com/clap-rs/clap) 
 
 ## Installation 
-### Via homebrew 
+### Homebrew 
 ```bash
 brew tap jooaf/homebrew-thoth
 brew install thoth
 ```
 
-### Via Cargo
+### Cargo
 If you have `cargo` installed on your machine, you can download directly from crates.io 
 
 ```bash 
