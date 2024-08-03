@@ -1,6 +1,6 @@
 [package]
 name = "thoth-cli"
-version = "0.1.39"
+version = "0.1.40"
 edition = "2021"
 authors = ["Joel Afriyie <joel.o.afriyie@gmail.com>", "Joel Afriyie <oren.beani@gmail.com>"]
 description = "A terminal scratchpad akin to Heynote"
