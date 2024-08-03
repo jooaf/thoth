@@ -40,7 +40,7 @@ impl MarkdownRenderer {
         title: String,
         width: usize,
     ) -> Result<Text<'static>> {
-        if let Some(lines) = self.cache.get(&title) {
+        if let Some(lines) = self.cache.get(&format!("{}{}", &title, &markdown)) {
             return Ok(lines.clone());
         }
 
@@ -157,7 +157,8 @@ impl MarkdownRenderer {
         }
 
         let markdown_lines = Text::from(lines);
-        self.cache.insert(title.clone(), markdown_lines.clone());
+        let new_key = &format!("{}{}", &title, &markdown);
+        self.cache.insert(new_key.clone(), markdown_lines.clone());
         Ok(markdown_lines)
     }
 
