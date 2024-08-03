@@ -240,7 +240,7 @@ pub fn render_error_popup(f: &mut Frame, popup: &ErrorPopup) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title("Error"),
+                .title("Error - Esc to exit"),
         );
     f.render_widget(text, area);
 }
