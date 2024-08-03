@@ -1,16 +1,16 @@
 # Contribution
 
-Contribution in any way is greatly appreciated :) ! Feel free to report problems, bug fixes, implementing features, etc.
+Contributions in any way is greatly appreciated :) ! Feel free to report problems, bug fixes, implementing features, etc.
 
 ## Opening an issue
 
 ### Bug reports
 
-When filing a bug report, fill out the bug report template. Be sure to give all the neccessary details! 
+When filing a bug report, fill out the bug report [template](https://github.com/jooaf/thoth/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=). Please add all the necessary details as it'll make it to reproduce the problem.
 
 ### Feature requests
 
-Please fill out the feature request template. Please provide details about your feature idea, as well as why this suggestion will be useful.
+Please fill out the feature request [template](https://github.com/jooaf/thoth/issues/new?assignees=&labels=&projects=&template=feature_request.md&title=). Please provide details about your feature idea, as well as why this suggestion will be useful.
 Note: Thoth is basically feature complete as the point is to keep the application simple like Heynote. However, I don't want this to discourage people from bringing up feature ideas! There may be some features that actually make sense to incorporate into Thoth.
 
 ## Pull requests

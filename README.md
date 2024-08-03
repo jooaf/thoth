@@ -179,3 +179,6 @@ echo "Hello, World (from STDIN)" | thoth add hello_world_stdin;
 # Using view to pipe contents into another command
 thoth view hello_world_stdin | cat
 ```
+
+## Contributions 
+Contributions are always welcomed :) !!! Please take a look at this [doc](https://github.com/jooaf/thoth/blob/main/CONTRIBUTING.md) for more information.
