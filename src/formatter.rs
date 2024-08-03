@@ -3,7 +3,6 @@ use pulldown_cmark::{Options, Parser};
 use pulldown_cmark_to_cmark::cmark;
 use serde_json::Value;
 
-// TODO: should add tests in the future when formatting becomes extensive
 pub fn format_markdown(input: &str) -> Result<String> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
