@@ -1,12 +1,12 @@
 # Contribution
 
-Contribution in any way is greatly appreciated :) ! Feel free to report problems, bug fixes, implementing features, etc.
+Contributions in any way is greatly appreciated :) ! Feel free to report problems, bug fixes, implementing features, etc.
 
 ## Opening an issue
 
 ### Bug reports
 
-When filing a bug report, fill out the bug report template. Be sure to give all the neccessary details! 
+When filing a bug report, fill out the bug report template. Please add all the necessary details as it'll make it to reproduce the problem.
 
 ### Feature requests
 
