@@ -172,13 +172,10 @@ jobs:
         asset_name: ${{ matrix.asset_name }}.rpm
         asset_content_type: application/x-rpm
 
-  calculate_sha256:
-    name: Calculate SHA256
-    needs: create_release
+  update_homebrew_formula:
+    name: Update Homebrew Formula
+    needs: [create_release, build_and_release]
     runs-on: ubuntu-latest
-    outputs:
-      darwin_amd64_sha256: ${{ steps.calc_sha256.outputs.darwin_amd64_sha256 }}
-      darwin_arm64_sha256: ${{ steps.calc_sha256.outputs.darwin_arm64_sha256 }}
     steps:
       - name: Download release assets
         run: |
@@ -188,14 +185,13 @@ jobs:
       - name: Calculate SHA256
         id: calc_sha256
         run: |
-          echo "darwin_amd64_sha256=$(sha256sum thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
-          echo "darwin_arm64_sha256=$(sha256sum thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+          AMD64_SHA256=$(sha256sum thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz | awk '{print $1}')
+          ARM64_SHA256=$(sha256sum thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz | awk '{print $1}')
+          echo "darwin_amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "darwin_arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
+          echo "Debug: AMD64 SHA256: $AMD64_SHA256"
+          echo "Debug: ARM64 SHA256: $ARM64_SHA256"
 
-  update_homebrew_formula:
-    name: Update Homebrew Formula
-    needs: calculate_sha256
-    runs-on: ubuntu-latest
-    steps:
       - name: Checkout homebrew-thoth
         uses: actions/checkout@v3
         with:
@@ -205,22 +201,25 @@ jobs:
 
       - name: Update formula
         env:
-          DARWIN_AMD64_SHA256: ${{ needs.calculate_sha256.outputs.darwin_amd64_sha256 }}
-          DARWIN_ARM64_SHA256: ${{ needs.calculate_sha256.outputs.darwin_arm64_sha256 }}
+          DARWIN_AMD64_SHA256: ${{ steps.calc_sha256.outputs.darwin_amd64_sha256 }}
+          DARWIN_ARM64_SHA256: ${{ steps.calc_sha256.outputs.darwin_arm64_sha256 }}
         run: |
           cd homebrew-thoth
+          echo "Debug: Using AMD64 SHA256: $DARWIN_AMD64_SHA256"
+          echo "Debug: Using ARM64 SHA256: $DARWIN_ARM64_SHA256"
           cat << EOF > thoth.rb
           class Thoth < Formula
             desc "A terminal scratchpad akin to Heynote"
             homepage "https://github.com/jooaf/thoth"
-            url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz"
-            sha256 "${DARWIN_AMD64_SHA256}"
-            license "MIT"
-
+            version "${{ github.event.inputs.version }}"
+            
             on_macos do
-              on_arm do
-                url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz"
-                sha256 "${DARWIN_ARM64_SHA256}"
+              if Hardware::CPU.intel?
+                url "https://github.com/jooaf/thoth/releases/download/v#{version}/thoth_#{version}_darwin_amd64.tar.gz"
+                sha256 "$DARWIN_AMD64_SHA256"
+              else
+                url "https://github.com/jooaf/thoth/releases/download/v#{version}/thoth_#{version}_darwin_arm64.tar.gz"
+                sha256 "$DARWIN_ARM64_SHA256"
               end
             end
 
@@ -229,7 +228,7 @@ jobs:
             end
 
             test do
-              assert_match "thoth version ${{ github.event.inputs.version }}", shell_output("#{bin}/thoth --version")
+              assert_match "thoth version #{version}", shell_output("#{bin}/thoth --version")
             end
           end
           EOF
@@ -240,7 +239,7 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add thoth.rb
-          git commit -m "Updated Thoth to ${{ github.event.inputs.version }}"
+          git commit -m "Update Thoth to ${{ github.event.inputs.version }}"
           git push
           
   publish_to_cargo:
@@ -283,4 +282,3 @@ jobs:
           }
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
