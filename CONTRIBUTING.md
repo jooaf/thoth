@@ -19,11 +19,15 @@ If you want to directly contribute to the code, look no further! Here is an expe
 
 1. Fork the project.
 2. Make your changes.
-3. If you are adding a new feature, please update the README.md.
-4. Commit and create a pull request to merge into the main branch. Please fill out the pull request template.
-5. Ask a maintainer to review your pull request.
-6. Check if the CI workflow passes. These consist of clippy lints, rustfmt checks, and basic tests. If you are a first-time contributor, you may need to wait for a maintainer to let CI run.
-7. If changes are suggested or any comments are made, they should probably be addressed.
-8. Once it looks good, it'll be merged! PRs will be squashed to maintain repo cleanliness.
+   - Make sure to run tests and `clippy` before pushing to your branch
+   - `cargo test`
+   - `cargo clippy -- -D warnings`
+   - Note: if you don't have clippy installed you can add it to your toolchain via `rustup component add clippy`
+4. If you are adding a new feature, please update the README.md.
+5. Commit and create a pull request to merge into the main branch. Please fill out the pull request template.
+6. Ask a maintainer to review your pull request.
+7. Check if the CI workflow passes. These consist of clippy lints, rustfmt checks, and basic tests. If you are a first-time contributor, you may need to wait for a maintainer to let CI run.
+8. If changes are suggested or any comments are made, they should probably be addressed.
+9. Once it looks good, it'll be merged! PRs will be squashed to maintain repo cleanliness.
 
 
