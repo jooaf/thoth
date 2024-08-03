@@ -24,7 +24,6 @@ If you want to directly contribute to the code, look no further! Here is an expe
 5. Ask a maintainer to review your pull request.
 6. Check if the CI workflow passes. These consist of clippy lints, rustfmt checks, and basic tests. If you are a first-time contributor, you may need to wait for a maintainer to let CI run.
 7. If changes are suggested or any comments are made, they should probably be addressed.
-8. Once it looks good, it'll be merged! PRs will be squashed to maintain repo cleanliness, though feel free to ask otherwise if that isn't preferable.
-For more details, see here.
+8. Once it looks good, it'll be merged! PRs will be squashed to maintain repo cleanliness.
 
 
