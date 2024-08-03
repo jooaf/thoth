@@ -67,11 +67,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-
-    - name: Calculate SHA256
-      run: |
-        echo "${{ matrix.asset_name }}_sha256=$(shasum -a 256 dist/${{ matrix.asset_name }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
-      id: calc_sha256
     
     - name: Install Rust
       uses: actions-rs/toolchain@v1
@@ -94,6 +89,12 @@ jobs:
         cd dist
         tar -czvf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
         
+    - name: Calculate SHA256
+      run: |
+        cd dist
+        echo "${{ matrix.asset_name }}_sha256=$(shasum -a 256 ${{ matrix.asset_name }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+      id: calc_sha256
+
     - name: Create DEB package (Linux only)
       if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
       run: |
@@ -115,21 +116,16 @@ jobs:
         sudo apt-get install -y rpm
         mkdir -p dist/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
         cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/rpm/SOURCES/
-        
-        # Debug information
-        echo "Contents of SOURCES directory:"
-        ls -l dist/rpm/SOURCES/
-        
         cat << EOF > dist/rpm/SPECS/thoth.spec
         Name: thoth
         Version: ${{ github.event.inputs.version }}
         Release: 1
         Summary: Thoth application
-        License: Proprietary
+        License: MIT
         BuildArch: $(uname -m)
         
         %description
-        Thoth application
+        A terminal scratchpad akin to Heynote
         
         %install
         mkdir -p %{buildroot}/usr/bin
@@ -141,23 +137,8 @@ jobs:
         %define __strip /bin/true
         %define __spec_install_post %{nil}
         EOF
-        
-        # Debug information
-        echo "Contents of SPECS directory:"
-        ls -l dist/rpm/SPECS/
-        cat dist/rpm/SPECS/thoth.spec
-        
         rpmbuild -bb --define "_topdir $(pwd)/dist/rpm" dist/rpm/SPECS/thoth.spec
-        
-        # Debug information
-        echo "Contents of RPMS directory:"
-        find dist/rpm/RPMS
-        
-        # Move the RPM file (adjust the path as necessary)
         find dist/rpm/RPMS -name '*.rpm' -exec mv {} dist/${{ matrix.asset_name }}.rpm \;
-        
-        # Verify the RPM was created
-        ls -l dist/${{ matrix.asset_name }}.rpm || echo "RPM file not found"    
         
     - name: Upload Release Asset (tar.gz)
       uses: actions/upload-release-asset@v1
@@ -192,8 +173,8 @@ jobs:
         asset_content_type: application/x-rpm
 
     outputs:
-      darwin_amd64_sha256: ${{ steps.calc_sha256.outputs.thoth_${{ github.event.inputs.version }}_darwin_amd64_sha256 }}
-      darwin_arm64_sha256: ${{ steps.calc_sha256.outputs.thoth_${{ github.event.inputs.version }}_darwin_arm64_sha256 }}
+      ${{ matrix.asset_name }}_sha256: ${{ steps.calc_sha256.outputs.${{ matrix.asset_name }}_sha256 }}
+
   publish_to_cargo:
     name: Publish to Cargo
     needs: create_release
@@ -234,7 +215,6 @@ jobs:
           }
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
     
   update_homebrew_formula:
     name: Update Homebrew Formula
@@ -256,13 +236,13 @@ jobs:
             desc "A terminal scratchpad akin to Heynote"
             homepage "https://github.com/jooaf/thoth"
             url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_amd64.tar.gz"
-            sha256 "${{ needs.build_and_release.outputs.darwin_amd64_sha256 }}"
+            sha256 "${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_amd64_sha256 }}"
             license "MIT"
 
             on_macos do
               on_arm do
                 url "https://github.com/jooaf/thoth/releases/download/v${{ github.event.inputs.version }}/thoth_${{ github.event.inputs.version }}_darwin_arm64.tar.gz"
-                sha256 "${{ needs.build_and_release.outputs.darwin_arm64_sha256 }}"
+                sha256 "${{ needs.build_and_release.outputs.thoth_${{ github.event.inputs.version }}_darwin_arm64_sha256 }}"
               end
             end
 
