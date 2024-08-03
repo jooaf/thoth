@@ -240,7 +240,7 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add thoth.rb
-          git commit -m "Update Thoth to ${{ github.event.inputs.version }}"
+          git commit -m "Updated Thoth to ${{ github.event.inputs.version }}"
           git push
           
   publish_to_cargo:
