@@ -19,8 +19,9 @@ jobs:
         run: |
           nu -c '
           let title = $env.PR_TITLE
-          let regex = "^(Fix|Feature|Documentation|Improvement):.+"
-          if ($title | str contains -r $regex) {
+          let titles = [Fix, Feature, Improvement, Documentation]
+          let type = $title | parse "{Type}:{Title}" | get Type.0 | str trim 
+          if ($type in $titles) {
             print "PR title is correctly formatted."
             exit 0
           } else {
