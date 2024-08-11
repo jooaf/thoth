@@ -15,6 +15,5 @@ jobs:
       uses: saadmk11/changelog-ci@v1.1.2
       with:
         config_file: .github/changelog-ci-config.yaml
-        output_file_name: 'changelog-ci-output.md'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
