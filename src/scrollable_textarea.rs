@@ -41,7 +41,7 @@ impl MarkdownCache {
             return Ok(cached.clone());
         }
 
-        let content = format!("{}\n", content.to_string());
+        let content = format!("{}\n", content);
 
         let rendered = self
             .renderer
