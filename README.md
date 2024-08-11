@@ -188,3 +188,7 @@ thoth view hello_world_stdin | cat
 
 ## Contributions 
 Contributions are always welcomed :) !!! Please take a look at this [doc](https://github.com/jooaf/thoth/blob/main/CONTRIBUTING.md) for more information.
+
+## TODO
+- Inlcude light mode 
+- Automatically saving backup `thoth_notes.md` files
