@@ -2,7 +2,7 @@ name: Changelog CI
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [ opened ]
 
 jobs:
   build:
@@ -14,7 +14,6 @@ jobs:
     - name: Run Changelog CI
       uses: saadmk11/changelog-ci@v1.1.2
       with:
-        changelog_filename: CHANGELOG.md
         config_file: .github/changelog-ci-config.yaml
         output_file_name: 'changelog-ci-output.md'
       env:
