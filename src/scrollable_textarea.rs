@@ -41,9 +41,11 @@ impl MarkdownCache {
             return Ok(cached.clone());
         }
 
-        let rendered =
-            self.renderer
-                .render_markdown(content.to_string(), title.to_string(), width)?;
+        let content = format!("{}\n", content.to_string());
+
+        let rendered = self
+            .renderer
+            .render_markdown(content, title.to_string(), width)?;
 
         if self.cache.len() >= RENDER_CACHE_SIZE {
             if let Some(old_key) = self.cache.keys().next().cloned() {
