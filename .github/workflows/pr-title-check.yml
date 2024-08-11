@@ -1,0 +1,36 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub
+      - name: Check PR Title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          import os
+          import re
+          from github import Github
+
+          title = os.environ['PR_TITLE']
+          regex = r'^(Fix|Feature|Documentation|Improvement):.+$'
+
+          if not re.match(regex, title):
+              print('PR title does not match the required format. It should start with one of: Fix:, Feature:, Documentation:, or Improvement:')
+              exit(1)
+          else:
+              print('PR title is correctly formatted.')

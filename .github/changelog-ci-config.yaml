@@ -1,0 +1,18 @@
+changelog_type: 'pull_request'
+header_prefix: '# Changelog'
+commit_changelog: false
+comment_changelog: true
+pull_request_title_regex: '^(Fix|Feature|Documentation|Improvement):.+$'
+group_config:
+  - title: 'Bug Fixes'
+    labels:
+      - 'Fix'
+  - title: 'Features'
+    labels:
+      - 'Feature'
+  - title: 'Documentation'
+    labels:
+      - 'Documentation'
+  - title: 'Improvements'
+    labels:
+      - 'Improvement'
