@@ -16,3 +16,5 @@ group_config:
   - title: 'Improvement'
     labels:
       - 'Improvement'
+version_regex: 'v?[0-9]+.[0-9]+.[0-9]+'
+include_unlabeled: true
