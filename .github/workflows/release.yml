@@ -6,6 +6,9 @@ on:
       version:
         description: 'Version to release (e.g., 1.2.3)'
         required: true
+      previous_version:
+        description: 'Previous version (e.g., 1.2.2)'
+        required: true
 
 jobs:
   create_release:
@@ -19,6 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Extract Changelog
+        id: extract_changelog
+        run: |
+          CURRENT_VERSION=${{ github.event.inputs.version }}
+          PREVIOUS_VERSION=${{ github.event.inputs.previous_version }}
+          CHANGELOG_CONTENT=$(awk "/## \[${CURRENT_VERSION}\]/,/## \[${PREVIOUS_VERSION}\]/" CHANGELOG.md | sed '$d')
+          echo "CHANGELOG_CONTENT<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -27,6 +40,8 @@ jobs:
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: v${{ github.event.inputs.version }}
+          body: |
+            ${{ steps.extract_changelog.outputs.CHANGELOG_CONTENT }}
           draft: false
           prerelease: false
           generate_release_notes: true
