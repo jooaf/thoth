@@ -1,4 +1,4 @@
-name: Auto Tag and Update Version
+name: Auto Tag, Update Version, and Changelog
 on:
   push:
     branches:
@@ -50,16 +50,36 @@ jobs:
           echo "Updated Cargo.toml:"
           grep version Cargo.toml
       
+      - name: Update Changelog
+        run: |
+          NEW_VERSION=${{ steps.bump_version.outputs.NEW_VERSION }}
+          TODAY=$(date +%Y-%m-%d)
+          
+          # Check if CHANGELOG.md exists, create it if it doesn't
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          
+          # Get all commit messages since the last tag
+          COMMITS=$(git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s")
+          
+          # Prepend new version section to CHANGELOG.md
+          sed -i "1i\\\n## [$NEW_VERSION] - $TODAY\n\n$COMMITS\n" CHANGELOG.md
+          
+          echo "Updated CHANGELOG.md with new version $NEW_VERSION"
+          cat CHANGELOG.md
+      
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add Cargo.toml
-          git commit -m "Bump version to ${{ steps.bump_version.outputs.NEW_VERSION }}"
+          git add Cargo.toml CHANGELOG.md
+          git commit -m "Bump version to ${{ steps.bump_version.outputs.NEW_VERSION }} and update CHANGELOG.md"
           git push
-          echo "Pushed changes to Cargo.toml"
+          echo "Pushed changes to Cargo.toml and CHANGELOG.md"
           echo "New git status:"
           git status
       
