@@ -4,15 +4,17 @@ commit_changelog: false
 comment_changelog: true
 pull_request_title_regex: '^(Fix|Feature|Documentation|Improvement):.+$'
 group_config:
-  - title: 'Bug Fixes'
+  - title: 'Fix'
     labels:
       - 'Fix'
-  - title: 'Features'
+  - title: 'Feature'
     labels:
       - 'Feature'
   - title: 'Documentation'
     labels:
       - 'Documentation'
-  - title: 'Improvements'
+  - title: 'Improvement'
     labels:
       - 'Improvement'
+version_regex: 'v?[0-9]+.[0-9]+.[0-9]+'
+include_unlabeled: true

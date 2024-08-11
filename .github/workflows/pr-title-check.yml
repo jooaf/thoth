@@ -9,28 +9,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - name: Install Nushell
+        uses: hustcer/setup-nu@v3
         with:
-          python-version: '3.x'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install PyGithub
+          version: 0.94.1
       - name: Check PR Title
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          import os
-          import re
-          from github import Github
-
-          title = os.environ['PR_TITLE']
-          regex = r'^(Fix|Feature|Documentation|Improvement):.+$'
-
-          if not re.match(regex, title):
-              print('PR title does not match the required format. It should start with one of: Fix:, Feature:, Documentation:, or Improvement:')
-              exit(1)
-          else:
-              print('PR title is correctly formatted.')
+          nu -c '
+          let title = $env.PR_TITLE
+          let titles = [Fix, Feature, Improvement, Documentation]
+          let type = $title | parse "{Type}:{Title}" | get Type.0 | str trim 
+          if ($type in $titles) {
+            print "PR title is correctly formatted."
+            exit 0
+          } else {
+            print "PR title does not match the required format. It should start with one of: Fix:, Feature:, Documentation:, or Improvement:"
+            exit 1
+          }
+          '
