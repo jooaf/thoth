@@ -25,6 +25,7 @@ If you want to directly contribute to the code, look no further! Here is an expe
    - Note: if you don't have clippy installed you can add it to your toolchain via `rustup component add clippy`
 4. If you are adding a new feature, please update the README.md.
 5. Commit and create a pull request to merge into the main branch. Please fill out the pull request template.
+6. Make sure that your PR is prepended with either of these in its title, Fix: , Documentation: , Improvement: , Feature: . 
 6. Ask a maintainer to review your pull request.
 7. Check if the CI workflow passes. These consist of clippy lints, rustfmt checks, and basic tests. If you are a first-time contributor, you may need to wait for a maintainer to let CI run.
 8. If changes are suggested or any comments are made, they should probably be addressed.
