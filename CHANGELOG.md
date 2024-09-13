@@ -1,4 +1,9 @@
 
+## [0.1.62] - 2024-09-13
+
+- Documentation: Add AUR instructions to README.md (#7)
+
+
 ## [0.1.61] - 2024-08-11
 
 - Documentation: adding future TODOs to README (#6)
