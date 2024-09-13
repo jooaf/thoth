@@ -52,6 +52,13 @@ If you have `cargo` installed on your machine, you can download directly from cr
 cargo install thoth-cli --locked
 ```
 
+### Arch Linux
+You can install [from the AUR](https://aur.archlinux.org/packages/thoth) using an [AUR helper](https://wiki.archlinux.org/title/AUR_helpers) like so:
+
+```bash
+paru -S thoth
+```
+
 ### Debian/Ubuntu
 You can install the `.deb` for your platform by doing the following (note: the URL is an example. To get the latest release please look at the [Releases](https://github.com/jooaf/thoth/releases) section)
 
