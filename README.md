@@ -58,6 +58,10 @@ You can install [from the AUR](https://aur.archlinux.org/packages/thoth) using a
 ```bash
 paru -S thoth
 ```
+Or
+```bash
+yay -S thoth
+```
 
 ### Debian/Ubuntu
 You can install the `.deb` for your platform by doing the following (note: the URL is an example. To get the latest release please look at the [Releases](https://github.com/jooaf/thoth/releases) section)
