@@ -145,8 +145,9 @@ pub fn copy_block(name: &str) -> Result<()> {
             let mut ctx = result_ctx.unwrap();
 
             let is_success = ctx.set_contents(block_content.join("\n"));
+            let get_content_success = ctx.get_contents();
 
-            if is_success.is_err() {
+            if is_success.is_err() || get_content_success.is_err() {
                 bail!(format!(
                     "Failed to copy contents of block {} to system clipboard",
                     block_name

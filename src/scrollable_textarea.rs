@@ -148,6 +148,8 @@ impl ScrollableTextArea {
                 .map_err(|e| anyhow::anyhow!("Failed to create clipboard context: {}", e))?;
             ctx.set_contents(content)
                 .map_err(|e| anyhow::anyhow!("Failed to set clipboard contents: {}", e))?;
+            ctx.get_contents()
+                .map_err(|e| anyhow::anyhow!("Failed to set clipboard contents: {}", e))?;
         }
         Ok(())
     }
@@ -218,6 +220,8 @@ impl ScrollableTextArea {
             let content = textarea.lines().join("\n");
             let mut ctx = ClipboardContext::new().unwrap();
             ctx.set_contents(content).unwrap();
+            ctx.get_contents()
+                .map_err(|e| anyhow::anyhow!("Failed to set clipboard contents: {}", e))?;
         }
         Ok(())
     }
@@ -233,6 +237,8 @@ impl ScrollableTextArea {
                 let content = all_lines[min_row..max_row].join("\n");
                 let mut ctx = ClipboardContext::new().unwrap();
                 ctx.set_contents(content).unwrap();
+                ctx.get_contents()
+                    .map_err(|e| anyhow::anyhow!("Failed to set clipboard contents: {}", e))?;
             }
         }
         // reset selection
