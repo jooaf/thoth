@@ -1,6 +1,5 @@
+use crate::EditorClipboard;
 use anyhow::{bail, Result};
-use copypasta::{ClipboardContext, ClipboardProvider};
-
 use std::{
     fs::File,
     io::{BufRead, BufReader, Write},
@@ -136,7 +135,7 @@ pub fn copy_block(name: &str) -> Result<()> {
 
     for (block_name, block_content) in blocks {
         if block_name == name {
-            let result_ctx = ClipboardContext::new();
+            let result_ctx = EditorClipboard::new();
 
             if result_ctx.is_err() {
                 bail!("Failed to create clipboard context for copy block");

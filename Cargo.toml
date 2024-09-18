@@ -2,7 +2,10 @@
 name = "thoth-cli"
 version = "0.1.62"
 edition = "2021"
-authors = ["Joel Afriyie <joel.o.afriyie@gmail.com>", "Joel Afriyie <oren.beani@gmail.com>"]
+authors = [
+  "Joel Afriyie <joel.o.afriyie@gmail.com>",
+  "Joel Afriyie <oren.beani@gmail.com>",
+]
 description = "A terminal scratchpad akin to Heynote"
 license = "MIT"
 repository = "https://github.com/jooaf/thoth"
@@ -18,7 +21,6 @@ pulldown-cmark-to-cmark = "15.0.1"
 ratatui = "0.27.0"
 crossterm = { version = "0.27.0", features = ["bracketed-paste"] }
 tui-textarea = "0.5.1"
-copypasta = "0.10.1"
 anyhow = "1.0.86"
 clap = { version = "4.3", features = ["derive"] }
 dirs = "5.0"
@@ -28,6 +30,7 @@ syntect-tui = "3.0.2"
 unicode-width = "0.1.10"
 rand = "0.8.5"
 once_cell = "1.19.0"
+arboard = "3.4.1"
 
 [[bin]]
 name = "thoth"
