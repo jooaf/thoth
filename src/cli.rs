@@ -152,6 +152,7 @@ pub fn copy_block(name: &str) -> Result<()> {
                 ));
             }
             matched_name = Some(block_name);
+            break;
         }
     }
     match matched_name {
