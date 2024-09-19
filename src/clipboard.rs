@@ -6,12 +6,22 @@ use std::thread;
 use arboard::SetExtLinux;
 use arboard::{Clipboard, Error};
 
+const DAEMONIZE_ARG: &str = "98b2d50a-2152-463e-986b-bc4b8280452e";
+
 pub struct EditorClipboard {
     clipboard: Arc<Mutex<Clipboard>>,
 }
 
 impl EditorClipboard {
     pub fn new() -> Result<EditorClipboard, Error> {
+        #[cfg(target_os = "linux")]
+        if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+            let mut clipboard = Clipboard::new()?;
+            clipboard.set().wait().text("")?;
+            std::thread::park();
+            return Err(Error::ClipboardError("Daemon mode".into()));
+        }
+
         Clipboard::new().map(|c| EditorClipboard {
             clipboard: Arc::new(Mutex::new(c)),
         })
@@ -29,11 +39,18 @@ impl EditorClipboard {
 
     #[cfg(target_os = "linux")]
     pub fn set_contents(&mut self, content: String) -> Result<(), Error> {
-        let clipboard = Arc::clone(&self.clipboard);
-        thread::spawn(move || {
-            let mut clipboard = clipboard.lock().unwrap();
-            clipboard.set().wait().text(content).unwrap();
-        });
+        let daemon = process::Command::new(env::current_exe()?)
+            .arg(DAEMONIZE_ARG)
+            .stdin(process::Stdio::null())
+            .stdout(process::Stdio::null())
+            .stderr(process::Stdio::null())
+            .current_dir("/")
+            .spawn()
+            .map_err(|e| Error::ClipboardError(e.to_string()))?;
+
+        let mut clipboard = self.clipboard.lock().unwrap();
+        clipboard.set().wait().text(content)?;
+
         Ok(())
     }
 
