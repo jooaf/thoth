@@ -1,4 +1,9 @@
 
+## [0.1.63] - 2024-09-20
+
+- Fix: Daemon clipboard on linux (#11)
+
+
 ## [0.1.62] - 2024-09-13
 
 - Documentation: Add AUR instructions to README.md (#7)
