@@ -5,10 +5,10 @@ use std::{
     rc::Rc,
 };
 
+use crate::EditorClipboard;
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use anyhow::Result;
-use copypasta::{ClipboardContext, ClipboardProvider};
 use rand::Rng;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -144,7 +144,7 @@ impl ScrollableTextArea {
     pub fn copy_textarea_contents(&self) -> Result<()> {
         if let Some(textarea) = self.textareas.get(self.focused_index) {
             let content = textarea.lines().join("\n");
-            let mut ctx = ClipboardContext::new()
+            let mut ctx = EditorClipboard::new()
                 .map_err(|e| anyhow::anyhow!("Failed to create clipboard context: {}", e))?;
             ctx.set_contents(content)
                 .map_err(|e| anyhow::anyhow!("Failed to set clipboard contents: {}", e))?;
@@ -216,7 +216,7 @@ impl ScrollableTextArea {
     pub fn copy_focused_textarea_contents(&self) -> anyhow::Result<()> {
         if let Some(textarea) = self.textareas.get(self.focused_index) {
             let content = textarea.lines().join("\n");
-            let mut ctx = ClipboardContext::new().unwrap();
+            let mut ctx = EditorClipboard::new().unwrap();
             ctx.set_contents(content).unwrap();
         }
         Ok(())
@@ -231,7 +231,7 @@ impl ScrollableTextArea {
 
             if max_row <= all_lines.len() {
                 let content = all_lines[min_row..max_row].join("\n");
-                let mut ctx = ClipboardContext::new().unwrap();
+                let mut ctx = EditorClipboard::new().unwrap();
                 ctx.set_contents(content).unwrap();
             }
         }

@@ -1,5 +1,5 @@
+use crate::EditorClipboard;
 use anyhow::{bail, Result};
-use copypasta::{ClipboardContext, ClipboardProvider};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
     execute,
@@ -32,7 +32,7 @@ pub struct UIState {
     pub title_select_popup: TitleSelectPopup,
     pub error_popup: ErrorPopup,
     pub edit_commands_popup: EditCommandsPopup,
-    pub clipboard: Option<ClipboardContext>,
+    pub clipboard: Option<EditorClipboard>,
     pub last_draw: Instant,
 }
 
@@ -55,7 +55,7 @@ impl UIState {
             title_select_popup: TitleSelectPopup::new(),
             error_popup: ErrorPopup::new(),
             edit_commands_popup: EditCommandsPopup::new(),
-            clipboard: ClipboardContext::new().ok(),
+            clipboard: EditorClipboard::try_new(),
             last_draw: Instant::now(),
         })
     }
@@ -476,7 +476,7 @@ fn handle_paste(state: &mut UIState) -> Result<()> {
     if state.scrollable_textarea.edit_mode {
         match &mut state.clipboard {
             Some(clip) => {
-                if let Ok(content) = clip.get_contents() {
+                if let Ok(content) = clip.get_content() {
                     let textarea = &mut state.scrollable_textarea.textareas
                         [state.scrollable_textarea.focused_index];
                     for line in content.lines() {
