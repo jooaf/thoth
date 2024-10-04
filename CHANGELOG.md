@@ -1,4 +1,9 @@
 
+## [0.1.65] - 2024-10-04
+
+- Feature: Adding thread to save backups (#13)
+
+
 ## [0.1.64] - 2024-10-04
 
 - Fix: Escape commands popup back to edit mode (#12)
