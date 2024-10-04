@@ -1,4 +1,9 @@
 
+## [0.1.66] - 2024-10-04
+
+- Documentation: Indicating that the save backup feature is completed (#14)
+
+
 ## [0.1.65] - 2024-10-04
 
 - Feature: Adding thread to save backups (#13)

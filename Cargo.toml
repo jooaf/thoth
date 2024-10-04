@@ -1,6 +1,6 @@
 [package]
 name = "thoth-cli"
-version = "0.1.65"
+version = "0.1.66"
 edition = "2021"
 authors = [
   "Joel Afriyie <joel.o.afriyie@gmail.com>",
