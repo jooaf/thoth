@@ -198,4 +198,4 @@ Contributions are always welcomed :) !!! Please take a look at this [doc](https:
 
 ## TODO
 - Inlcude light mode 
-- Automatically saving backup `thoth_notes.md` files
+- Automatically saving backup `thoth_notes.md` files: Done! 
