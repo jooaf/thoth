@@ -344,8 +344,12 @@ fn handle_normal_input(
             }
         }
         KeyCode::Esc => {
-            state.scrollable_textarea.edit_mode = false;
-            state.edit_commands_popup.visible = false;
+            if state.edit_commands_popup.visible {
+                state.edit_commands_popup.visible = false;
+            } else {
+                state.scrollable_textarea.edit_mode = false;
+                state.edit_commands_popup.visible = false;
+            }
 
             if state.error_popup.visible {
                 state.error_popup.hide();
