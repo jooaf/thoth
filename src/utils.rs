@@ -1,11 +1,12 @@
 use crate::get_save_file_path;
 use anyhow::Result;
 use std::io::{BufRead, Write};
+use std::path::PathBuf;
 use std::{fs::File, io::BufReader};
 use tui_textarea::TextArea;
 
-pub fn save_textareas(textareas: &[TextArea], titles: &[String]) -> Result<()> {
-    let mut file = File::create(get_save_file_path())?;
+pub fn save_textareas(textareas: &[TextArea], titles: &[String], file_path: PathBuf) -> Result<()> {
+    let mut file = File::create(file_path)?;
     for (textarea, title) in textareas.iter().zip(titles.iter()) {
         writeln!(file, "# {}", title)?;
         let content = textarea.lines().join("\n");

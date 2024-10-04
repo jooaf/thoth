@@ -302,6 +302,7 @@ fn handle_normal_input(
                 save_textareas(
                     &state.scrollable_textarea.textareas,
                     &state.scrollable_textarea.titles,
+                    get_save_file_path(),
                 )?;
                 return Ok(true);
             }
