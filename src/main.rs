@@ -12,7 +12,7 @@ use std::{
 };
 use thoth_cli::{
     cli::{add_block, copy_block, delete_block, list_blocks, view_block},
-    get_save_backup_file_path,
+    get_save_backup_file_path, EditorClipboard,
 };
 use thoth_cli::{
     cli::{Cli, Commands},
