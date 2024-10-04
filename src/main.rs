@@ -6,14 +6,18 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::io::{self, Read};
+use std::{
+    io::{self, Read},
+    thread,
+};
 use thoth_cli::{
     cli::{add_block, copy_block, delete_block, list_blocks, view_block},
-    EditorClipboard,
+    get_save_backup_file_path, EditorClipboard,
 };
 use thoth_cli::{
     cli::{Cli, Commands},
     ui_handler::{draw_ui, handle_input, UIState},
+    utils::save_textareas,
 };
 
 use std::time::Duration;
@@ -71,6 +75,13 @@ pub fn run_ui() -> Result<()> {
     let mut state = UIState::new()?;
 
     let draw_interval = Duration::from_millis(33);
+
+    let copy_textareas = state.scrollable_textarea.textareas.clone();
+    let copy_titles = state.scrollable_textarea.titles.clone();
+    thread::spawn(move || loop {
+        let _ = save_textareas(&copy_textareas, &copy_titles, get_save_backup_file_path());
+        thread::sleep(Duration::from_secs(60)); // save backup every minute
+    });
 
     loop {
         let should_draw = state.last_draw.elapsed() >= draw_interval;

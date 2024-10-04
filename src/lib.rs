@@ -22,6 +22,9 @@ pub use utils::{load_textareas, save_textareas};
 pub fn get_save_file_path() -> PathBuf {
     home_dir().unwrap_or_default().join("thoth_notes.md")
 }
+pub fn get_save_backup_file_path() -> PathBuf {
+    home_dir().unwrap_or_default().join("thoth_notes_backup.md")
+}
 
 pub const ORANGE: ratatui::style::Color = ratatui::style::Color::Rgb(255, 165, 0);
 pub const DAEMONIZE_ARG: &str = "__thoth_copy_daemonize";
