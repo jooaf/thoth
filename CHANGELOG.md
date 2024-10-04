@@ -1,4 +1,9 @@
 
+## [0.1.64] - 2024-10-04
+
+- Fix: Escape commands popup back to edit mode (#12)
+
+
 ## [0.1.63] - 2024-09-20
 
 - Fix: Daemon clipboard on linux (#11)
