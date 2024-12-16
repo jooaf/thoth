@@ -39,8 +39,9 @@ pub struct UIState {
 impl UIState {
     pub fn new() -> Result<Self> {
         let mut scrollable_textarea = ScrollableTextArea::new();
-        if get_save_file_path().exists() {
-            let (loaded_textareas, loaded_titles) = load_textareas()?;
+        let main_save_path = get_save_file_path();
+        if main_save_path.exists() {
+            let (loaded_textareas, loaded_titles) = load_textareas(main_save_path)?;
             for (textarea, title) in loaded_textareas.into_iter().zip(loaded_titles) {
                 scrollable_textarea.add_textarea(textarea, title);
             }

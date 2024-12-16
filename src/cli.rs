@@ -1,4 +1,4 @@
-use crate::EditorClipboard;
+use crate::{get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard};
 use anyhow::{bail, Result};
 use std::{
     fs::File,
@@ -11,13 +11,14 @@ use clap::{Parser, Subcommand};
 
 use crate::get_save_file_path;
 #[derive(Parser)]
-#[command(author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about, long_about = None)]
+#[command(author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about, long_about = None, rename_all = "snake_case")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
+#[command(rename_all = "snake_case")]
 pub enum Commands {
     /// Add a new block to the scratchpad
     Add {
@@ -28,6 +29,8 @@ pub enum Commands {
     },
     /// List all of the blocks within your thoth scratchpad
     List,
+    /// Load backup file as the main thoth markdown file
+    LoadBackup,
     /// Delete a block by name
     Delete {
         /// The name of the block to be deleted
@@ -72,6 +75,15 @@ pub fn list_blocks() -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn replace_from_backup() -> Result<()> {
+    let (backup_textareas, backup_textareas_titles) = load_textareas(get_save_backup_file_path())?;
+    save_textareas(
+        &backup_textareas,
+        &backup_textareas_titles,
+        get_save_file_path(),
+    )
 }
 
 pub fn view_block(name: &str) -> Result<()> {

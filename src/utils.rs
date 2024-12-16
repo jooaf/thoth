@@ -1,4 +1,3 @@
-use crate::get_save_file_path;
 use anyhow::Result;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
@@ -25,8 +24,8 @@ pub fn save_textareas(textareas: &[TextArea], titles: &[String], file_path: Path
     Ok(())
 }
 
-pub fn load_textareas() -> Result<(Vec<TextArea<'static>>, Vec<String>)> {
-    let file = File::open(get_save_file_path())?;
+pub fn load_textareas(file_path: PathBuf) -> Result<(Vec<TextArea<'static>>, Vec<String>)> {
+    let file = File::open(file_path)?;
     let reader = BufReader::new(file);
     let mut textareas = Vec::with_capacity(10);
     let mut titles = Vec::with_capacity(10);

@@ -11,7 +11,7 @@ use std::{
     thread,
 };
 use thoth_cli::{
-    cli::{add_block, copy_block, delete_block, list_blocks, view_block},
+    cli::{add_block, copy_block, delete_block, list_blocks, replace_from_backup, view_block},
     get_save_backup_file_path, EditorClipboard,
 };
 use thoth_cli::{
@@ -47,6 +47,9 @@ fn main() -> Result<()> {
         }
         Some(Commands::List) => {
             list_blocks()?;
+        }
+        Some(Commands::LoadBackup) => {
+            replace_from_backup()?;
         }
         Some(Commands::Delete { name }) => {
             delete_block(name)?;
