@@ -1,4 +1,4 @@
-use crate::EditorClipboard;
+use crate::{get_save_backup_file_path, EditorClipboard};
 use anyhow::{bail, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
@@ -304,6 +304,11 @@ fn handle_normal_input(
                     &state.scrollable_textarea.textareas,
                     &state.scrollable_textarea.titles,
                     get_save_file_path(),
+                )?;
+                save_textareas(
+                    &state.scrollable_textarea.textareas,
+                    &state.scrollable_textarea.titles,
+                    get_save_backup_file_path(),
                 )?;
                 return Ok(true);
             }
