@@ -166,7 +166,7 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                 Err(e) => {
                     state
                         .error_popup
-                        .show(format!("Failed to copy to clipboard: {}", e));
+                        .show(format!("Failed to copy to system clipboard: {}", e));
                 }
             }
         }
