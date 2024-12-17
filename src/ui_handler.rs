@@ -300,13 +300,17 @@ fn handle_normal_input(
                                 .copy_popup
                                 .show(format!("Copied block {}", curr_title));
                         }
-                        None => {}
+                        None => {
+                            state
+                                .error_popup
+                                .show(format!("Failed to copy selection with title"));
+                        }
                     }
                 }
                 Err(e) => {
                     state
                         .error_popup
-                        .show(format!("Failed to copy to clipboard: {}", e));
+                        .show(format!("Failed to copy to system clipboard: {}", e));
                 }
             }
         }
