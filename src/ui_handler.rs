@@ -159,7 +159,7 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                         None => {
                             state
                                 .error_popup
-                                .show(format!("Failed to copy selection with title"));
+                                .show("Failed to copy selection with title".to_string());
                         }
                     }
                 }
@@ -303,7 +303,7 @@ fn handle_normal_input(
                         None => {
                             state
                                 .error_popup
-                                .show(format!("Failed to copy selection with title"));
+                                .show("Failed to copy selection with title".to_string());
                         }
                     }
                 }
