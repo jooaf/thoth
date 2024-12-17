@@ -169,11 +169,6 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                         .show(format!("Failed to copy to clipboard: {}", e));
                 }
             }
-            // if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
-            //     state
-            //         .error_popup
-            //         .show(format!("Failed to copy to clipboard: {}", e));
-            // }
         }
         KeyCode::Char('s')
             if key.modifiers.contains(KeyModifiers::ALT)
@@ -291,15 +286,8 @@ fn handle_normal_input(
                     }
                 }
             }
-            // edit_with_external_editor(state)?;
         }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            // if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
-            //     state
-            //         .error_popup
-            //         .show(format!("Failed to copy to clipboard: {}", e));
-            // }
-
             match state.scrollable_textarea.copy_focused_textarea_contents() {
                 Ok(_) => {
                     let curr_focused_index = state.scrollable_textarea.focused_index;
