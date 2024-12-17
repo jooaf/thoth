@@ -23,16 +23,18 @@ impl Default for EditCommandsPopup {
     }
 }
 
-pub struct ErrorPopup {
+pub struct UiPopup {
     pub message: String,
+    pub popup_title: String,
     pub visible: bool,
 }
 
-impl ErrorPopup {
-    pub fn new() -> Self {
-        ErrorPopup {
+impl UiPopup {
+    pub fn new(popup_tile: String) -> Self {
+        UiPopup {
             message: String::new(),
             visible: false,
+            popup_title: popup_tile,
         }
     }
 
@@ -46,9 +48,9 @@ impl ErrorPopup {
     }
 }
 
-impl Default for ErrorPopup {
+impl Default for UiPopup {
     fn default() -> Self {
-        Self::new()
+        Self::new("".to_owned())
     }
 }
 
@@ -226,7 +228,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     f.render_widget(paragraph, area);
 }
 
-pub fn render_error_popup(f: &mut Frame, popup: &ErrorPopup) {
+pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
     if !popup.visible {
         return;
     }
@@ -240,10 +242,29 @@ pub fn render_error_popup(f: &mut Frame, popup: &ErrorPopup) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title("Error - Esc to exit"),
+                .title(format!("{} - Esc to exit", popup.popup_title)),
         );
     f.render_widget(text, area);
 }
+
+// pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
+//     if !popup.visible {
+//         return;
+//     }
+
+//     let area = centered_rect(60, 20, f.size());
+//     f.render_widget(ratatui::widgets::Clear, area);
+
+//     let text = Paragraph::new(popup.message.as_str())
+//         .style(Style::default().fg(Color::Red))
+//         .block(
+//             Block::default()
+//                 .borders(Borders::ALL)
+//                 .border_style(Style::default().fg(Color::Red))
+//                 .title("Block Copied - Esc to exit"),
+//         );
+//     f.render_widget(text, area);
+// }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()

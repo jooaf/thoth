@@ -15,8 +15,8 @@ use tui_textarea::TextArea;
 use crate::{
     format_json, format_markdown, get_save_file_path, load_textareas, save_textareas,
     ui::{
-        render_edit_commands_popup, render_error_popup, render_header, render_title_popup,
-        render_title_select_popup, EditCommandsPopup, ErrorPopup,
+        render_edit_commands_popup, render_header, render_title_popup, render_title_select_popup,
+        render_ui_popup, EditCommandsPopup, UiPopup,
     },
     ScrollableTextArea, TitlePopup, TitleSelectPopup,
 };
@@ -30,7 +30,8 @@ pub struct UIState {
     pub scrollable_textarea: ScrollableTextArea,
     pub title_popup: TitlePopup,
     pub title_select_popup: TitleSelectPopup,
-    pub error_popup: ErrorPopup,
+    pub error_popup: UiPopup,
+    pub copy_popup: UiPopup,
     pub edit_commands_popup: EditCommandsPopup,
     pub clipboard: Option<EditorClipboard>,
     pub last_draw: Instant,
@@ -54,7 +55,8 @@ impl UIState {
             scrollable_textarea,
             title_popup: TitlePopup::new(),
             title_select_popup: TitleSelectPopup::new(),
-            error_popup: ErrorPopup::new(),
+            error_popup: UiPopup::new("Error".to_string()),
+            copy_popup: UiPopup::new("Block Copied".to_string()),
             edit_commands_popup: EditCommandsPopup::new(),
             clipboard: EditorClipboard::try_new(),
             last_draw: Instant::now(),
@@ -96,7 +98,11 @@ pub fn draw_ui(
         }
 
         if state.error_popup.visible {
-            render_error_popup(f, &state.error_popup);
+            render_ui_popup(f, &state.error_popup);
+        }
+
+        if state.copy_popup.visible {
+            render_ui_popup(f, &state.copy_popup);
         }
     })?;
     Ok(())
@@ -138,11 +144,36 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
         KeyCode::Up => handle_up_key(state, key),
         KeyCode::Down => handle_down_key(state, key),
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
-                state
-                    .error_popup
-                    .show(format!("Failed to copy to clipboard: {}", e));
+            match state.scrollable_textarea.copy_focused_textarea_contents() {
+                Ok(_) => {
+                    let curr_focused_index = state.scrollable_textarea.focused_index;
+                    let curr_title_option =
+                        state.scrollable_textarea.titles.get(curr_focused_index);
+
+                    match curr_title_option {
+                        Some(curr_title) => {
+                            state
+                                .copy_popup
+                                .show(format!("Copied block {}", curr_title));
+                        }
+                        None => {
+                            state
+                                .error_popup
+                                .show(format!("Failed to copy selection with title"));
+                        }
+                    }
+                }
+                Err(e) => {
+                    state
+                        .error_popup
+                        .show(format!("Failed to copy to clipboard: {}", e));
+                }
             }
+            // if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
+            //     state
+            //         .error_popup
+            //         .show(format!("Failed to copy to clipboard: {}", e));
+            // }
         }
         KeyCode::Char('s')
             if key.modifiers.contains(KeyModifiers::ALT)
@@ -263,10 +294,32 @@ fn handle_normal_input(
             // edit_with_external_editor(state)?;
         }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
-                state
-                    .error_popup
-                    .show(format!("Failed to copy to clipboard: {}", e));
+            // if let Err(e) = state.scrollable_textarea.copy_focused_textarea_contents() {
+            //     state
+            //         .error_popup
+            //         .show(format!("Failed to copy to clipboard: {}", e));
+            // }
+
+            match state.scrollable_textarea.copy_focused_textarea_contents() {
+                Ok(_) => {
+                    let curr_focused_index = state.scrollable_textarea.focused_index;
+                    let curr_title_option =
+                        state.scrollable_textarea.titles.get(curr_focused_index);
+
+                    match curr_title_option {
+                        Some(curr_title) => {
+                            state
+                                .copy_popup
+                                .show(format!("Copied block {}", curr_title));
+                        }
+                        None => {}
+                    }
+                }
+                Err(e) => {
+                    state
+                        .error_popup
+                        .show(format!("Failed to copy to clipboard: {}", e));
+                }
             }
         }
         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -360,6 +413,9 @@ fn handle_normal_input(
 
             if state.error_popup.visible {
                 state.error_popup.hide();
+            }
+            if state.copy_popup.visible {
+                state.copy_popup.hide();
             }
         }
         KeyCode::Up => handle_up_key(state, key),
