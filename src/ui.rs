@@ -247,25 +247,6 @@ pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
     f.render_widget(text, area);
 }
 
-// pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
-//     if !popup.visible {
-//         return;
-//     }
-
-//     let area = centered_rect(60, 20, f.size());
-//     f.render_widget(ratatui::widgets::Clear, area);
-
-//     let text = Paragraph::new(popup.message.as_str())
-//         .style(Style::default().fg(Color::Red))
-//         .block(
-//             Block::default()
-//                 .borders(Borders::ALL)
-//                 .border_style(Style::default().fg(Color::Red))
-//                 .title("Block Copied - Esc to exit"),
-//         );
-//     f.render_widget(text, area);
-// }
-
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
