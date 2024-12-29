@@ -171,16 +171,17 @@ A terminal scratchpad akin to Heynote
 Usage: thoth [COMMAND]
 
 Commands:
-  add     Add a new block to the scratchpad
-  list    List all of the blocks within your thoth scratchpad
-  delete  Delete a block by name
-  view    View (STDOUT) the contents of the block by name
-  copy    Copy the contents of a block to the system clipboard
-  help    Print this message or the help of the given subcommand(s)
+  add          Add a new block to the scratchpad
+  list         List all of the blocks within your thoth scratchpad
+  load_backup  Load backup file as the main thoth markdown file
+  delete       Delete a block by name
+  view         View (STDOUT) the contents of the block by name
+  copy         Copy the contents of a block to the system clipboard
+  help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
-  -V, --version  Print version  
+  -V, --version  Print version
 ```
 
 #### Examples 
@@ -199,3 +200,4 @@ Contributions are always welcomed :) !!! Please take a look at this [doc](https:
 ## TODO
 - Inlcude light mode 
 - Automatically saving backup `thoth_notes.md` files: Done! 
+- Add fuzzy finder for selecting blocks in TUI
