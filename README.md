@@ -109,7 +109,7 @@ The binary lives in `thoth/target/release/thoth`. You can add the binary to your
 This will show how to use the scratchpad via the CLI or the TUI. 
 
 ### TUI 
-To start the TUI, simple type `thoth`. Since it is a persistent buffer, thoth will save when you hit quit using `q`.
+To start the TUI, simply type `thoth`. Since it is a persistent buffer, thoth will save when you hit quit using `q`.
 
 #### Commands for main mode 
 ```
@@ -161,7 +161,8 @@ for editing in `tui-textarea`.
 | Ctrl+K | Format markdown block |
 | Ctrl+J | Format JSON |
 
-If you would like to use your external editor -- such as NeoVim, Helix, etc. -- Thoth offers that functionality.
+If you would like to use your external editor -- such as NeoVim, Helix, etc. -- Thoth offers that functionality. 
+Please set your `$EDITOR` or `$VISUAL` environment variables to make use of this feature.
 
 ### CLI 
 For accessing the CLI, one can use `thoth` followed by a command.
