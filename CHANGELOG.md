@@ -1,4 +1,9 @@
 
+## [0.1.71] - 2025-01-02
+
+- Improvement: Adding LTO in Cargo.toml for release (#20)
+
+
 ## [0.1.70] - 2024-12-30
 
 - Documentation: Fixing a typo and adding instructions in README (#18)
