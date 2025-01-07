@@ -257,6 +257,8 @@ fn into_span((style, text): (SyntectStyle, &str)) -> Span<'static> {
 
 #[cfg(test)]
 mod tests {
+    use crate::MIN_TEXTAREA_HEIGHT;
+
     use super::*;
 
     #[test]
@@ -267,7 +269,7 @@ mod tests {
             .render_markdown(markdown.to_string(), "".to_string(), 40)
             .unwrap();
 
-        assert!(rendered.lines.len() >= 3);
+        assert!(rendered.lines.len() >= MIN_TEXTAREA_HEIGHT);
         assert!(rendered.lines[0]
             .spans
             .iter()
@@ -337,7 +339,7 @@ mod tests {
             .render_markdown(markdown, "".to_string(), 40)
             .unwrap();
 
-        assert!(rendered.lines.len() > 3);
+        assert!(rendered.lines.len() > MIN_TEXTAREA_HEIGHT);
         assert!(rendered.lines[0]
             .spans
             .iter()

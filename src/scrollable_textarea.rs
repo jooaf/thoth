@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::EditorClipboard;
+use crate::{EditorClipboard, MIN_TEXTAREA_HEIGHT};
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use anyhow::Result;
@@ -95,6 +95,7 @@ impl ScrollableTextArea {
         self.full_screen_mode = !self.full_screen_mode;
         if self.full_screen_mode {
             self.edit_mode = false;
+            self.scroll = 0
         }
     }
 
@@ -184,7 +185,8 @@ impl ScrollableTextArea {
         } else {
             let mut height_sum = 0;
             for i in self.scroll..=self.focused_index {
-                let textarea_height = self.textareas[i].lines().len().max(3) as u16 + 2;
+                let textarea_height =
+                    self.textareas[i].lines().len().max(MIN_TEXTAREA_HEIGHT) as u16 + 2;
                 height_sum += textarea_height;
 
                 if height_sum > self.viewport_height {
@@ -204,7 +206,7 @@ impl ScrollableTextArea {
     pub fn calculate_height_to_focused(&self) -> u16 {
         self.textareas[self.scroll..=self.focused_index]
             .iter()
-            .map(|ta| ta.lines().len().max(3) as u16 + 2)
+            .map(|ta| ta.lines().len().max(MIN_TEXTAREA_HEIGHT) as u16 + 2)
             .sum()
     }
 
@@ -284,7 +286,9 @@ impl ScrollableTextArea {
                 let height = if is_editing {
                     remaining_height
                 } else {
-                    content_height.min(remaining_height).max(3)
+                    content_height
+                        .min(remaining_height)
+                        .max(MIN_TEXTAREA_HEIGHT as u16)
                 };
 
                 visible_textareas.push((i, textarea, height));
@@ -347,6 +351,43 @@ impl ScrollableTextArea {
         }
 
         Ok(())
+    }
+
+    pub fn handle_scroll(&mut self, direction: isize) {
+        if !self.full_screen_mode {
+            return;
+        }
+
+        let current_height = self.textareas[self.focused_index].lines().len();
+        let is_scrolling_down = direction > 0;
+        let is_at_last_textarea = self.focused_index == self.textareas.len() - 1;
+        let is_at_first_textarea = self.focused_index == 0;
+
+        // Scrolling down
+        if is_scrolling_down {
+            let can_scroll_further = self.scroll < current_height.saturating_sub(1);
+            let can_move_to_next = !is_at_last_textarea;
+
+            if can_scroll_further {
+                self.scroll += 1;
+            } else if can_move_to_next {
+                self.focused_index += 1;
+                self.scroll = 0;
+            }
+            return;
+        }
+
+        // Scrolling up
+        let can_scroll_up = self.scroll > 0;
+        let can_move_to_previous = !is_at_first_textarea;
+
+        if can_scroll_up {
+            self.scroll -= 1;
+        } else if can_move_to_previous {
+            self.focused_index -= 1;
+            let prev_height = self.textareas[self.focused_index].lines().len();
+            self.scroll = prev_height.saturating_sub(1);
+        }
     }
 
     fn render_full_screen(&mut self, f: &mut Frame, area: Rect) -> Result<()> {

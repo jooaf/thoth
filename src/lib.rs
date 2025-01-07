@@ -28,3 +28,4 @@ pub fn get_save_backup_file_path() -> PathBuf {
 
 pub const ORANGE: ratatui::style::Color = ratatui::style::Color::Rgb(255, 165, 0);
 pub const DAEMONIZE_ARG: &str = "__thoth_copy_daemonize";
+pub const MIN_TEXTAREA_HEIGHT: usize = 3;

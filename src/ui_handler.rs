@@ -132,6 +132,10 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
             } else {
                 state.scrollable_textarea.toggle_full_screen();
             }
+
+            state
+                .scrollable_textarea
+                .jump_to_textarea(state.scrollable_textarea.focused_index);
         }
         KeyCode::Enter => {
             if !state.scrollable_textarea.edit_mode {
@@ -141,8 +145,20 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                     .insert_newline();
             }
         }
-        KeyCode::Up => handle_up_key(state, key),
-        KeyCode::Down => handle_down_key(state, key),
+        KeyCode::Up => {
+            if state.scrollable_textarea.edit_mode {
+                handle_up_key(state, key);
+            } else {
+                state.scrollable_textarea.handle_scroll(-1);
+            }
+        }
+        KeyCode::Down => {
+            if state.scrollable_textarea.edit_mode {
+                handle_down_key(state, key);
+            } else {
+                state.scrollable_textarea.handle_scroll(1);
+            }
+        }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             match state.scrollable_textarea.copy_focused_textarea_contents() {
                 Ok(_) => {
