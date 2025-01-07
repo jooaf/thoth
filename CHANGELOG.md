@@ -1,4 +1,9 @@
 
+## [0.1.72] - 2025-01-07
+
+- Improvement: Adding fix for scrolling in full screen mode (#21)
+
+
 ## [0.1.71] - 2025-01-02
 
 - Improvement: Adding LTO in Cargo.toml for release (#20)
