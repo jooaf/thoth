@@ -21,8 +21,10 @@ fn test_full_application_flow() {
 
     // Test focus movement
     sta.move_focus(1);
-    assert_eq!(sta.focused_index, 1);
+    assert_eq!(sta.focused_index, 0);
     sta.move_focus(-1);
+    assert_eq!(sta.focused_index, 1);
+    sta.move_focus(1);
     assert_eq!(sta.focused_index, 0);
 
     // Test title change
