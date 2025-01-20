@@ -225,7 +225,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(ORANGE))
-        .title(format!("Select Title"));
+        .title("Select Title");
 
     let paragraph = Paragraph::new(items)
         .block(block)
