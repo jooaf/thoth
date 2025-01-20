@@ -1,4 +1,4 @@
-use crate::{get_save_backup_file_path, EditorClipboard};
+use crate::{get_save_backup_file_path, EditorClipboard, BORDER_PADDING_SIZE};
 use anyhow::{bail, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
@@ -238,6 +238,15 @@ fn handle_title_popup_input(state: &mut UIState, key: event::KeyEvent) -> Result
 }
 
 fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) -> Result<bool> {
+    // Subtract 2 from viewport height to account for the top and bottom borders
+    // drawn by Block::default().borders(Borders::ALL) in ui.rs render_title_select_popup.
+    // The borders are rendered using unicode box-drawing characters:
+    // top border    : ┌───┐
+    // bottom border : └───┘
+    // let visible_items = state.scrollable_textarea.viewport_height.saturating_sub(2) as usize;
+    let visible_items = (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize
+        - BORDER_PADDING_SIZE;
+
     match key.code {
         KeyCode::Enter => {
             state
@@ -250,18 +259,10 @@ fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) ->
             state.edit_commands_popup.visible = false;
         }
         KeyCode::Up => {
-            if state.title_select_popup.selected_index > 0 {
-                state.title_select_popup.selected_index -= 1;
-            } else {
-                state.title_select_popup.selected_index = state.title_select_popup.titles.len() - 1
-            }
+            state.title_select_popup.move_selection_up(visible_items);
         }
         KeyCode::Down => {
-            if state.title_select_popup.selected_index < state.title_select_popup.titles.len() - 1 {
-                state.title_select_popup.selected_index += 1;
-            } else {
-                state.title_select_popup.selected_index = 0;
-            }
+            state.title_select_popup.move_selection_down(visible_items);
         }
         _ => {}
     }

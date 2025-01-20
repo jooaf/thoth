@@ -1,4 +1,4 @@
-use crate::{TitlePopup, TitleSelectPopup, ORANGE};
+use crate::{TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -67,7 +67,7 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
         Cell::from("MAPPINGS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
         Cell::from("DESCRIPTIONS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
     ])
-    .height(2);
+    .height(BORDER_PADDING_SIZE as u16);
 
     let commands: Vec<Row> = vec![
         Row::new(vec![
@@ -105,7 +105,7 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
         .header(header)
         .block(block)
         .widths([Constraint::Percentage(30), Constraint::Percentage(70)])
-        .column_spacing(2)
+        .column_spacing(BORDER_PADDING_SIZE as u16)
         .highlight_style(Style::default().fg(Color::Yellow))
         .highlight_symbol(">> ");
 
@@ -149,7 +149,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
 
     let thoth_width = thoth.width();
     let separator_width = separator.width();
-    let reserved_width = thoth_width + 2; // 2 extra spaces for padding
+    let reserved_width = thoth_width + BORDER_PADDING_SIZE; // 2 extra spaces for padding
 
     let mut display_commands = Vec::new();
     let mut current_width = 0;
@@ -166,7 +166,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
     let command_string = display_commands.join(separator);
     let command_width = command_string.width();
 
-    let padding = " ".repeat(available_width - command_width - thoth_width - 2);
+    let padding = " ".repeat(available_width - command_width - thoth_width - BORDER_PADDING_SIZE);
 
     let header = Line::from(vec![
         Span::styled(command_string, Style::default().fg(ORANGE)),
@@ -200,12 +200,18 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
-    let items: Vec<Line> = popup
-        .titles
+    let visible_height = area.height.saturating_sub(BORDER_PADDING_SIZE as u16) as usize;
+
+    let start_idx = popup.scroll_offset;
+    let end_idx = (popup.scroll_offset + visible_height).min(popup.titles.len());
+    let visible_titles = &popup.titles[start_idx..end_idx];
+
+    let items: Vec<Line> = visible_titles
         .iter()
         .enumerate()
         .map(|(i, title)| {
-            if i == popup.selected_index {
+            let absolute_idx = i + popup.scroll_offset;
+            if absolute_idx == popup.selected_index {
                 Line::from(vec![Span::styled(
                     format!("> {}", title),
                     Style::default().fg(Color::Yellow),
@@ -374,6 +380,7 @@ mod tests {
             titles: vec!["Title1".to_string(), "Title2".to_string()],
             selected_index: 0,
             visible: true,
+            scroll_offset: 0,
         };
 
         terminal

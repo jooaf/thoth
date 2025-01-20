@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::{EditorClipboard, MIN_TEXTAREA_HEIGHT};
+use crate::{EditorClipboard, BORDER_PADDING_SIZE, MIN_TEXTAREA_HEIGHT};
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
 use anyhow::Result;
@@ -172,11 +172,15 @@ impl ScrollableTextArea {
     }
 
     pub fn move_focus(&mut self, direction: isize) {
-        let new_index = (self.focused_index as isize + direction).max(0) as usize;
-        if new_index < self.textareas.len() {
-            self.focused_index = new_index;
-            self.adjust_scroll_to_focused();
+        let new_index = self.focused_index as isize + direction;
+        if new_index >= (self.textareas.len()) as isize {
+            self.focused_index = 0;
+        } else if new_index < 0 {
+            self.focused_index = self.textareas.len() - 1;
+        } else {
+            self.focused_index = new_index as usize;
         }
+        self.adjust_scroll_to_focused();
     }
 
     pub fn adjust_scroll_to_focused(&mut self) {
@@ -186,10 +190,10 @@ impl ScrollableTextArea {
             let mut height_sum = 0;
             for i in self.scroll..=self.focused_index {
                 let textarea_height =
-                    self.textareas[i].lines().len().max(MIN_TEXTAREA_HEIGHT) as u16 + 2;
+                    self.textareas[i].lines().len().max(MIN_TEXTAREA_HEIGHT) + BORDER_PADDING_SIZE;
                 height_sum += textarea_height;
 
-                if height_sum > self.viewport_height {
+                if height_sum > self.viewport_height as usize {
                     self.scroll = i;
                     break;
                 }
@@ -206,7 +210,7 @@ impl ScrollableTextArea {
     pub fn calculate_height_to_focused(&self) -> u16 {
         self.textareas[self.scroll..=self.focused_index]
             .iter()
-            .map(|ta| ta.lines().len().max(MIN_TEXTAREA_HEIGHT) as u16 + 2)
+            .map(|ta| (ta.lines().len().max(MIN_TEXTAREA_HEIGHT) + BORDER_PADDING_SIZE) as u16)
             .sum()
     }
 
@@ -279,7 +283,7 @@ impl ScrollableTextArea {
                     break;
                 }
 
-                let content_height = textarea.lines().len() as u16 + 2;
+                let content_height = (textarea.lines().len() + BORDER_PADDING_SIZE) as u16;
                 let is_focused = i == self.focused_index;
                 let is_editing = is_focused && self.edit_mode;
 
@@ -340,7 +344,7 @@ impl ScrollableTextArea {
                     let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(
                         &content,
                         title,
-                        f.size().width as usize - 2,
+                        f.size().width as usize - BORDER_PADDING_SIZE,
                     )?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
@@ -404,7 +408,7 @@ impl ScrollableTextArea {
         let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(
             &content,
             title,
-            f.size().width as usize - 2,
+            f.size().width as usize - BORDER_PADDING_SIZE,
         )?;
 
         let paragraph = Paragraph::new(rendered_markdown)
@@ -448,11 +452,14 @@ mod tests {
     fn test_move_focus() {
         let mut sta = create_test_textarea();
         sta.add_textarea(TextArea::default(), "Test1".to_string());
-        sta.add_textarea(TextArea::default(), "Test2".to_string());
-        sta.move_focus(1);
-        assert_eq!(sta.focused_index, 1);
-        sta.move_focus(-1);
         assert_eq!(sta.focused_index, 0);
+        sta.add_textarea(TextArea::default(), "Test2".to_string());
+
+        assert_eq!(sta.focused_index, 1);
+        sta.move_focus(1);
+        assert_eq!(sta.focused_index, 0);
+        sta.move_focus(-1);
+        assert_eq!(sta.focused_index, 1);
     }
 
     #[test]
