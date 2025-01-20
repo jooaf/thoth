@@ -1,4 +1,9 @@
 
+## [0.1.73] - 2025-01-20
+
+- Improvement: Continuous scroll across components (#22)
+
+
 ## [0.1.72] - 2025-01-07
 
 - Improvement: Adding fix for scrolling in full screen mode (#21)
