@@ -172,11 +172,15 @@ impl ScrollableTextArea {
     }
 
     pub fn move_focus(&mut self, direction: isize) {
-        let new_index = (self.focused_index as isize + direction).max(0) as usize;
-        if new_index < self.textareas.len() {
-            self.focused_index = new_index;
-            self.adjust_scroll_to_focused();
+        let new_index = self.focused_index as isize + direction;
+        if new_index > (self.textareas.len()) as isize {
+            self.focused_index = 0;
+        } else if new_index < 0 {
+            self.focused_index = self.textareas.len() - 1;
+        } else {
+            self.focused_index = new_index as usize;
         }
+        self.adjust_scroll_to_focused();
     }
 
     pub fn adjust_scroll_to_focused(&mut self) {
