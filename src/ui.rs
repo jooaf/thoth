@@ -1,4 +1,4 @@
-use crate::{title_popup, TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
+use crate::{TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
