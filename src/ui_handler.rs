@@ -243,20 +243,31 @@ fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) ->
     // The borders are rendered using unicode box-drawing characters:
     // top border    : ┌───┐
     // bottom border : └───┘
-    // let visible_items = state.scrollable_textarea.viewport_height.saturating_sub(2) as usize;
     let visible_items = (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize
         - BORDER_PADDING_SIZE;
 
     match key.code {
         KeyCode::Enter => {
-            state
-                .scrollable_textarea
-                .jump_to_textarea(state.title_select_popup.selected_index);
-            state.title_select_popup.visible = false;
+            if !state.title_select_popup.filtered_titles.is_empty() {
+                let selected_title_match = &state.title_select_popup.filtered_titles
+                    [state.title_select_popup.selected_index];
+                state
+                    .scrollable_textarea
+                    .jump_to_textarea(selected_title_match.index);
+                state.title_select_popup.visible = false;
+                if !state.title_select_popup.search_query.is_empty() {
+                    state.title_select_popup.search_query.clear();
+                    state.title_select_popup.reset_filtered_titles();
+                }
+            }
         }
         KeyCode::Esc => {
             state.title_select_popup.visible = false;
             state.edit_commands_popup.visible = false;
+            if !state.title_select_popup.search_query.is_empty() {
+                state.title_select_popup.search_query.clear();
+                state.title_select_popup.reset_filtered_titles();
+            }
         }
         KeyCode::Up => {
             state.title_select_popup.move_selection_up(visible_items);
@@ -264,6 +275,15 @@ fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) ->
         KeyCode::Down => {
             state.title_select_popup.move_selection_down(visible_items);
         }
+        KeyCode::Char(c) => {
+            state.title_select_popup.search_query.push(c);
+            state.title_select_popup.update_search();
+        }
+        KeyCode::Backspace => {
+            state.title_select_popup.search_query.pop();
+            state.title_select_popup.update_search();
+        }
+
         _ => {}
     }
     Ok(false)
@@ -356,7 +376,10 @@ fn handle_normal_input(
             if key.modifiers.contains(KeyModifiers::CONTROL)
                 && !key.modifiers.contains(KeyModifiers::SHIFT) =>
         {
-            state.title_select_popup.titles = state.scrollable_textarea.titles.clone();
+            // populate title_select_popup with the current titles from the textareas
+            state
+                .title_select_popup
+                .set_titles(state.scrollable_textarea.titles.clone());
             state.title_select_popup.selected_index = 0;
             state.title_select_popup.visible = true;
         }
