@@ -201,4 +201,4 @@ Contributions are always welcomed :) !!! Please take a look at this [doc](https:
 ## TODO
 - Inlcude light mode 
 - Automatically saving backup `thoth_notes.md` files: Done! 
-- Add fuzzy finder for selecting blocks in TUI
+- Add fuzzy finder for selecting blocks in TUI: Done!
