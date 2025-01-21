@@ -1,4 +1,9 @@
 
+## [0.1.75] - 2025-01-21
+
+- Documentation: Adding "Done!" to fuzzy finder bullet point (#24)
+
+
 ## [0.1.74] - 2025-01-21
 
 - Feature: Adding ability to fuzzy match in title select popup (#23)
