@@ -1,4 +1,9 @@
 
+## [0.1.74] - 2025-01-21
+
+- Feature: Adding ability to fuzzy match in title select popup (#23)
+
+
 ## [0.1.73] - 2025-01-20
 
 - Improvement: Continuous scroll across components (#22)
