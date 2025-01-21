@@ -35,6 +35,7 @@ unicode-width = "0.1.10"
 rand = "0.8.5"
 once_cell = "1.19.0"
 arboard = "3.4.1"
+fuzzy-matcher = "0.3.7"
 
 [[bin]]
 name = "thoth"

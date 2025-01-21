@@ -1,4 +1,4 @@
-use crate::{TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
+use crate::{title_popup, TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -200,24 +200,34 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
-    let visible_height = area.height.saturating_sub(BORDER_PADDING_SIZE as u16) as usize;
+    let constraints = vec![Constraint::Min(1), Constraint::Length(3)];
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(area);
+
+    let main_area = chunks[0];
+    let search_box = chunks[1];
+
+    let visible_height = main_area.height.saturating_sub(BORDER_PADDING_SIZE as u16) as usize;
 
     let start_idx = popup.scroll_offset;
-    let end_idx = (popup.scroll_offset + visible_height).min(popup.titles.len());
-    let visible_titles = &popup.titles[start_idx..end_idx];
+    let end_idx = (popup.scroll_offset + visible_height).min(popup.filtered_titles.len());
+    let visible_titles = &popup.filtered_titles[start_idx..end_idx];
 
     let items: Vec<Line> = visible_titles
         .iter()
         .enumerate()
-        .map(|(i, title)| {
+        .map(|(i, title_match)| {
             let absolute_idx = i + popup.scroll_offset;
             if absolute_idx == popup.selected_index {
                 Line::from(vec![Span::styled(
-                    format!("> {}", title),
+                    format!("> {}", title_match.title),
                     Style::default().fg(Color::Yellow),
                 )])
             } else {
-                Line::from(vec![Span::raw(format!("  {}", title))])
+                Line::from(vec![Span::raw(format!("  {}", title_match.title))])
             }
         })
         .collect();
@@ -231,7 +241,16 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
         .block(block)
         .wrap(ratatui::widgets::Wrap { trim: true });
 
-    f.render_widget(paragraph, area);
+    f.render_widget(paragraph, main_area);
+
+    let search_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ORANGE))
+        .title("Search");
+
+    let search_text = Paragraph::new(popup.search_query.as_str()).block(search_block);
+
+    f.render_widget(search_text, search_box);
 }
 
 pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
@@ -376,12 +395,16 @@ mod tests {
     fn test_render_title_select_popup() {
         let backend = TestBackend::new(100, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        let popup = TitleSelectPopup {
-            titles: vec!["Title1".to_string(), "Title2".to_string()],
+        let mut popup = TitleSelectPopup {
+            titles: Vec::new(),
             selected_index: 0,
             visible: true,
             scroll_offset: 0,
+            search_query: "".to_string(),
+            filtered_titles: Vec::new(),
         };
+
+        popup.set_titles(vec!["Title1".to_string(), "Title2".to_string()]);
 
         terminal
             .draw(|f| {
