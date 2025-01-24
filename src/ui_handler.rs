@@ -1,4 +1,4 @@
-use crate::{get_save_backup_file_path, EditorClipboard, BORDER_PADDING_SIZE};
+use crate::{get_save_backup_file_path, EditorClipboard};
 use anyhow::{bail, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
@@ -243,8 +243,8 @@ fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) ->
     // The borders are rendered using unicode box-drawing characters:
     // top border    : ┌───┐
     // bottom border : └───┘
-    let visible_items = (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize
-        - BORDER_PADDING_SIZE;
+    let visible_items =
+        (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize - 10;
 
     match key.code {
         KeyCode::Enter => {
