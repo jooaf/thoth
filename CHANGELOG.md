@@ -1,4 +1,9 @@
 
+## [0.1.76] - 2025-01-24
+
+- Fix: Scroll offset in Title Select Popup was off (#25)
+
+
 ## [0.1.75] - 2025-01-21
 
 - Documentation: Adding "Done!" to fuzzy finder bullet point (#24)
