@@ -74,7 +74,7 @@ impl TitleSelectPopup {
             self.selected_index = self.filtered_titles.len() - 1;
         }
 
-        if self.selected_index < self.scroll_offset {
+        if self.selected_index <= self.scroll_offset {
             self.scroll_offset = self.selected_index;
         }
         if self.selected_index == self.filtered_titles.len() - 1 {
