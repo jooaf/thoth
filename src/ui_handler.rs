@@ -1,7 +1,7 @@
 use crate::{get_save_backup_file_path, EditorClipboard};
 use anyhow::{bail, Result};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
+    event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -113,6 +113,10 @@ pub fn handle_input(
     state: &mut UIState,
     key: event::KeyEvent,
 ) -> Result<bool> {
+    if key.kind != KeyEventKind::Press {
+        return Ok(false);
+    }
+
     if state.scrollable_textarea.full_screen_mode {
         handle_full_screen_input(state, key)
     } else if state.title_popup.visible {

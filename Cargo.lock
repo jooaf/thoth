@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "thoth-cli"
-version = "0.1.75"
+version = "0.1.76"
 dependencies = [
  "anyhow",
  "arboard",
