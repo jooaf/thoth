@@ -1,4 +1,9 @@
 
+## [0.1.77] - 2025-02-24
+
+- Fix: Prevent duplicate input on Windows (#27)
+
+
 ## [0.1.76] - 2025-01-24
 
 - Fix: Scroll offset in Title Select Popup was off (#25)
