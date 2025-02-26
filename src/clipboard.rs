@@ -39,26 +39,24 @@ impl EditorClipboard {
                     .clipboard
                     .lock()
                     .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                return clipboard.set().wait().text(content);
+                clipboard.set().wait().text(content);
+            } else if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+                let mut clipboard = self
+                    .clipboard
+                    .lock()
+                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                clipboard.set().wait().text(content);
             } else {
-                if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
-                    let mut clipboard = self
-                        .clipboard
-                        .lock()
-                        .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                    return clipboard.set().wait().text(content);
-                } else {
-                    process::Command::new(env::current_exe().unwrap())
-                        .arg(DAEMONIZE_ARG)
-                        .arg(content)
-                        .stdin(process::Stdio::null())
-                        .stdout(process::Stdio::null())
-                        .stderr(process::Stdio::null())
-                        .current_dir("/")
-                        .spawn()
-                        .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                    return Ok(());
-                }
+                process::Command::new(env::current_exe().unwrap())
+                    .arg(DAEMONIZE_ARG)
+                    .arg(content)
+                    .stdin(process::Stdio::null())
+                    .stdout(process::Stdio::null())
+                    .stderr(process::Stdio::null())
+                    .current_dir("/")
+                    .spawn()
+                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                Ok(());
             }
         }
 
