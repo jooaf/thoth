@@ -37,7 +37,7 @@ impl EditorClipboard {
                     let result = if let Ok(wayland_display) = std::env::var("WAYLAND_DISPLAY") {
                         clipboard.set().wait().text(content.clone())
                     } else {
-                        if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+                        Ok(if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
                             let mut clipboard = self
                                 .clipboard
                                 .lock()
@@ -53,7 +53,7 @@ impl EditorClipboard {
                                 .current_dir("/")
                                 .spawn()
                                 .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                        }
+                        })
                     };
                     result
                 }
