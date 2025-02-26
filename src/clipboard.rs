@@ -30,39 +30,45 @@ impl EditorClipboard {
     }
 
     pub fn set_contents(&mut self, content: String) -> Result<(), Error> {
-        match self.clipboard.lock() {
-            Ok(mut clipboard) => {
-                #[cfg(target_os = "linux")]
-                {
-                    let result = if let Ok(wayland_display) = std::env::var("WAYLAND_DISPLAY") {
-                        clipboard.set().wait().text(content.clone())
-                    } else {
-                        Ok(if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
-                            let mut clipboard = self
-                                .clipboard
-                                .lock()
-                                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                            clipboard.set().wait().text(content)?;
-                        } else {
-                            process::Command::new(env::current_exe().unwrap())
-                                .arg(DAEMONIZE_ARG)
-                                .arg(content)
-                                .stdin(process::Stdio::null())
-                                .stdout(process::Stdio::null())
-                                .stderr(process::Stdio::null())
-                                .current_dir("/")
-                                .spawn()
-                                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                        })
-                    };
-                    result
-                }
-                #[cfg(not(target_os = "linux"))]
-                {
-                    clipboard.set_text(content)
+        #[cfg(target_os = "linux")]
+        {
+            let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+
+            if is_wayland {
+                let mut clipboard = self
+                    .clipboard
+                    .lock()
+                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                return clipboard.set().wait().text(content);
+            } else {
+                if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+                    let mut clipboard = self
+                        .clipboard
+                        .lock()
+                        .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                    return clipboard.set().wait().text(content);
+                } else {
+                    process::Command::new(env::current_exe().unwrap())
+                        .arg(DAEMONIZE_ARG)
+                        .arg(content)
+                        .stdin(process::Stdio::null())
+                        .stdout(process::Stdio::null())
+                        .stderr(process::Stdio::null())
+                        .current_dir("/")
+                        .spawn()
+                        .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                    return Ok(());
                 }
             }
-            Err(_) => Err(arboard::Error::ContentNotAvailable),
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            let mut clipboard = self
+                .clipboard
+                .lock()
+                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+            clipboard.set_text(content)
         }
     }
 

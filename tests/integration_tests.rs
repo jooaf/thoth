@@ -1,67 +1,35 @@
+use anyhow::Result;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use thoth_cli::{
-    format_json, format_markdown, get_save_file_path, ClipboardTrait, EditorClipboard,
-    ScrollableTextArea, TitlePopup, TitleSelectPopup,
+    format_json, format_markdown, get_save_file_path, EditorClipboard, ScrollableTextArea,
+    TitlePopup, TitleSelectPopup,
 };
 use tui_textarea::TextArea;
 
-// Create a mock clipboard implementation
-struct MockClipboard {
-    content: RefCell<String>,
-}
-
-impl MockClipboard {
-    fn new() -> Self {
-        MockClipboard {
-            content: RefCell::new(String::new()),
-        }
-    }
-
-    fn set_text(&self, text: String) -> Result<(), arboard::Error> {
-        *self.content.borrow_mut() = text;
-        Ok(())
-    }
-
-    fn get_text(&self) -> Result<String, arboard::Error> {
-        Ok(self.content.borrow().clone())
-    }
-}
-
 #[cfg(test)]
-impl ClipboardTrait for clipboard_mock::MockEditorClipboard {
-    fn set_contents(&mut self, content: String) -> anyhow::Result<()> {
-        self.set_contents(content)
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    fn get_content(&self) -> anyhow::Result<String> {
-        self.get_content().map_err(|e| anyhow::anyhow!("{}", e))
-    }
-}
-
-// Temporarily replace the real EditorClipboard with our mock for testing
-#[cfg(test)]
-mod clipboard_mock {
+mod test_utils {
     use super::*;
+    use std::sync::{Arc, Mutex};
 
-    pub struct MockEditorClipboard {
-        mock: Arc<MockClipboard>,
+    pub struct MockClipboard {
+        content: String,
     }
 
-    impl MockEditorClipboard {
-        pub fn new() -> Result<Self, arboard::Error> {
-            Ok(MockEditorClipboard {
-                mock: Arc::new(MockClipboard::new()),
-            })
+    impl MockClipboard {
+        pub fn new() -> Self {
+            MockClipboard {
+                content: String::new(),
+            }
         }
 
-        pub fn set_contents(&mut self, content: String) -> Result<(), arboard::Error> {
-            self.mock.set_text(content)
+        pub fn set_content(&mut self, content: String) -> Result<()> {
+            self.content = content;
+            Ok(())
         }
 
-        pub fn get_content(&self) -> Result<String, arboard::Error> {
-            self.mock.get_text()
+        pub fn get_content(&self) -> Result<String> {
+            Ok(self.content.clone())
         }
     }
 }
@@ -93,20 +61,15 @@ fn test_full_application_flow() {
     sta.change_title("Updated Note 1".to_string());
     assert_eq!(sta.titles[0], "Updated Note 1");
 
-    // Mock the clipboard functionality for testing
-    // Instead of calling the actual clipboard function, we'll test the textarea content
-    let content = sta.textareas[sta.focused_index].lines().join("\n");
-    assert_eq!(content, "This is the content of Note 1");
+    // Test clipboard content extraction
+    let expected_content = sta.test_get_clipboard_content();
+    assert_eq!(expected_content, "This is the content of Note 1");
 
-    // Optional: Test with our mock clipboard if we need to verify clipboard operations
-    {
-        use clipboard_mock::MockEditorClipboard;
-        let mut mock_clipboard = MockEditorClipboard::new().unwrap();
-        let content = sta.textareas[sta.focused_index].lines().join("\n");
-        mock_clipboard.set_contents(content.clone()).unwrap();
-        let clipboard_content = mock_clipboard.get_content().unwrap();
-        assert_eq!(clipboard_content, "This is the content of Note 1");
-    }
+    // Create and test with mock clipboard
+    let mut mock_clipboard = test_utils::MockClipboard::new();
+    let _ = mock_clipboard.set_content(expected_content.clone());
+    let clipboard_content = mock_clipboard.get_content().unwrap();
+    assert_eq!(clipboard_content, "This is the content of Note 1");
 
     // Test remove textarea
     sta.remove_textarea(1);
@@ -131,7 +94,6 @@ fn test_full_application_flow() {
     assert!(formatted_json.contains("\"name\": \"John\""));
     assert!(formatted_json.contains("\"age\": 30"));
 
-    // Rest of the test remains the same...
     // Test TitlePopup
     let mut title_popup = TitlePopup::new();
     title_popup.title = "New Title".to_string();
@@ -151,4 +113,41 @@ fn test_full_application_flow() {
     // Test save file path
     let save_path = get_save_file_path();
     assert!(save_path.ends_with("thoth_notes.md"));
+}
+
+#[test]
+fn test_clipboard_functionality() {
+    // Create a mock clipboard
+    let mut mock_clipboard = test_utils::MockClipboard::new();
+
+    // Initialize ScrollableTextArea
+    let mut sta = ScrollableTextArea::new();
+
+    // Create a textarea with content
+    let mut textarea = TextArea::default();
+    textarea.insert_str("Test clipboard content");
+    sta.add_textarea(textarea, "Clipboard Test".to_string());
+
+    // Get the content that would be copied
+    let content = sta.textareas[sta.focused_index].lines().join("\n");
+
+    // Store it in our mock clipboard
+    mock_clipboard.set_content(content).unwrap();
+
+    // Retrieve from mock clipboard
+    let clipboard_content = mock_clipboard.get_content().unwrap();
+
+    // Verify content
+    assert_eq!(clipboard_content, "Test clipboard content");
+
+    // Test copy selection by mocking line selection
+    sta.start_sel = 0;
+    let current_line = sta.textareas[sta.focused_index].lines()[0].clone();
+    mock_clipboard.set_content(current_line.clone()).unwrap();
+
+    // Verify selection content
+    assert_eq!(
+        mock_clipboard.get_content().unwrap(),
+        "Test clipboard content"
+    );
 }

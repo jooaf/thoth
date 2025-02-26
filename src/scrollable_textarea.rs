@@ -5,7 +5,6 @@ use std::{
     rc::Rc,
 };
 
-use crate::ClipboardTrait;
 use crate::{EditorClipboard, BORDER_PADDING_SIZE, MIN_TEXTAREA_HEIGHT};
 use crate::{MarkdownRenderer, ORANGE};
 use anyhow;
@@ -420,20 +419,8 @@ impl ScrollableTextArea {
         f.render_widget(paragraph, area);
         Ok(())
     }
-}
-
-impl ScrollableTextArea {
-    #[cfg(test)]
-    // this is used for testing the mocks
-    pub fn copy_with_custom_clipboard<T: ClipboardTrait>(
-        &self,
-        clipboard: &mut T,
-    ) -> anyhow::Result<()> {
-        if let Some(textarea) = self.textareas.get(self.focused_index) {
-            let content = textarea.lines().join("\n");
-            clipboard.set_contents(content)?;
-        }
-        Ok(())
+    pub fn test_get_clipboard_content(&self) -> String {
+        self.textareas[self.focused_index].lines().join("\n")
     }
 }
 
