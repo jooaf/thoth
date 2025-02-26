@@ -9,6 +9,7 @@ pub mod ui;
 pub mod ui_handler;
 pub mod utils;
 
+pub use clipboard::ClipboardTrait;
 pub use clipboard::EditorClipboard;
 use dirs::home_dir;
 pub use formatter::{format_json, format_markdown};

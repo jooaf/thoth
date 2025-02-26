@@ -9,6 +9,11 @@ use arboard::SetExtLinux;
 
 use crate::DAEMONIZE_ARG;
 
+pub trait ClipboardTrait {
+    fn set_contents(&mut self, content: String) -> anyhow::Result<()>;
+    fn get_content(&self) -> anyhow::Result<String>;
+}
+
 pub struct EditorClipboard {
     clipboard: Arc<Mutex<Clipboard>>,
 }
@@ -25,34 +30,40 @@ impl EditorClipboard {
     }
 
     pub fn set_contents(&mut self, content: String) -> Result<(), Error> {
-        #[cfg(target_os = "linux")]
-        {
-            if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
-                let mut clipboard = self
-                    .clipboard
-                    .lock()
-                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                clipboard.set().wait().text(content)?;
-            } else {
-                process::Command::new(env::current_exe().unwrap())
-                    .arg(DAEMONIZE_ARG)
-                    .arg(content)
-                    .stdin(process::Stdio::null())
-                    .stdout(process::Stdio::null())
-                    .stderr(process::Stdio::null())
-                    .current_dir("/")
-                    .spawn()
-                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+        match self.clipboard.lock() {
+            Ok(mut clipboard) => {
+                #[cfg(target_os = "linux")]
+                {
+                    let result = if let Ok(wayland_display) = std::env::var("WAYLAND_DISPLAY") {
+                        clipboard.set().wait().text(content.clone())
+                    } else {
+                        if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+                            let mut clipboard = self
+                                .clipboard
+                                .lock()
+                                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                            clipboard.set().wait().text(content)?;
+                        } else {
+                            process::Command::new(env::current_exe().unwrap())
+                                .arg(DAEMONIZE_ARG)
+                                .arg(content)
+                                .stdin(process::Stdio::null())
+                                .stdout(process::Stdio::null())
+                                .stderr(process::Stdio::null())
+                                .current_dir("/")
+                                .spawn()
+                                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                        }
+                    };
+                    result
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    clipboard.set_text(content)
+                }
             }
+            Err(_) => Err(arboard::Error::ContentNotAvailable),
         }
-
-        #[cfg(not(target_os = "linux"))]
-        {
-            let mut clipboard = self.clipboard.lock().unwrap();
-            clipboard.set_text(content)?;
-        }
-
-        Ok(())
     }
 
     pub fn get_content(&mut self) -> Result<String, Error> {
