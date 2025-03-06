@@ -1,7 +1,4 @@
-use crate::{
-    get_clipboard_backup_file_path, get_save_backup_file_path, load_textareas, save_textareas,
-    EditorClipboard,
-};
+use crate::{get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard};
 use anyhow::{bail, Result};
 use std::{
     fs::File,
