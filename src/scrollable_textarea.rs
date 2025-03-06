@@ -220,10 +220,61 @@ impl ScrollableTextArea {
     }
 
     pub fn copy_focused_textarea_contents(&self) -> anyhow::Result<()> {
+        use std::fs::File;
+        use std::io::Write;
+
         if let Some(textarea) = self.textareas.get(self.focused_index) {
             let content = textarea.lines().join("\n");
-            let mut ctx = EditorClipboard::new().unwrap();
-            ctx.set_contents(content).unwrap();
+
+            // Force clipboard failure if env var is set (for testing)
+            if std::env::var("THOTH_TEST_CLIPBOARD_FAIL").is_ok() {
+                let backup_path = crate::get_clipboard_backup_file_path();
+                let mut file = File::create(&backup_path)?;
+                file.write_all(content.as_bytes())?;
+
+                return Err(anyhow::anyhow!(
+                "TESTING: Simulated clipboard failure.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                backup_path.display()
+            ));
+            }
+
+            match EditorClipboard::new() {
+                Ok(mut ctx) => {
+                    if let Err(e) = ctx.set_contents(content.clone()) {
+                        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+                            || std::env::var("XDG_SESSION_TYPE")
+                                .map(|v| v == "wayland")
+                                .unwrap_or(false);
+
+                        let backup_path = crate::get_clipboard_backup_file_path();
+                        let mut file = File::create(&backup_path)?;
+                        file.write_all(content.as_bytes())?;
+
+                        if is_wayland {
+                            return Err(anyhow::anyhow!(
+                            "Wayland clipboard error.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                            backup_path.display()
+                        ));
+                        } else {
+                            return Err(anyhow::anyhow!(
+                            "Clipboard error: {}.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                            e.to_string().split('\n').next().unwrap_or("Unknown error"),
+                            backup_path.display()
+                        ));
+                        }
+                    }
+                }
+                Err(_) => {
+                    let backup_path = crate::get_clipboard_backup_file_path();
+                    let mut file = File::create(&backup_path)?;
+                    file.write_all(content.as_bytes())?;
+
+                    return Err(anyhow::anyhow!(
+                    "Clipboard unavailable.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                    backup_path.display()
+                ));
+                }
+            }
         }
         Ok(())
     }

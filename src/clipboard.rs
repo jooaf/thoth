@@ -32,14 +32,19 @@ impl EditorClipboard {
     pub fn set_contents(&mut self, content: String) -> Result<(), Error> {
         #[cfg(target_os = "linux")]
         {
-            let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+            let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+                || std::env::var("XDG_SESSION_TYPE")
+                    .map(|v| v == "wayland")
+                    .unwrap_or(false);
 
             if is_wayland {
                 let mut clipboard = self
                     .clipboard
                     .lock()
                     .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                clipboard.set().wait().text(content)
+
+                let result = clipboard.set().wait().text(content);
+                result
             } else if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
                 let mut clipboard = self
                     .clipboard
@@ -47,6 +52,10 @@ impl EditorClipboard {
                     .map_err(|_e| arboard::Error::ContentNotAvailable)?;
                 clipboard.set().wait().text(content)
             } else {
+                if std::env::var("THOTH_DEBUG_CLIPBOARD").is_ok() {
+                    return Err(arboard::Error::ContentNotAvailable);
+                }
+
                 process::Command::new(env::current_exe().unwrap())
                     .arg(DAEMONIZE_ARG)
                     .arg(content)

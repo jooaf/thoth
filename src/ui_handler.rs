@@ -184,14 +184,7 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                     }
                 }
                 Err(e) => {
-                    let error_msg = if e.to_string().contains("X11")
-                        || e.to_string().contains("clipboard")
-                    {
-                        "Clipboard operation failed - Wayland compatibility issue. Try using Ctrl+T to rename and view content instead.".to_string()
-                    } else {
-                        format!("Failed to copy to system clipboard: {}", e)
-                    };
-                    state.error_popup.show(error_msg);
+                    state.error_popup.show(format!("{}", e));
                 }
             }
         }
@@ -354,9 +347,7 @@ fn handle_normal_input(
                     }
                 }
                 Err(e) => {
-                    state
-                        .error_popup
-                        .show(format!("Failed to copy to system clipboard: {}", e));
+                    state.error_popup.show(format!("{}", e));
                 }
             }
         }

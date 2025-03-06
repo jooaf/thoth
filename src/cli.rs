@@ -1,4 +1,7 @@
-use crate::{get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard};
+use crate::{
+    get_clipboard_backup_file_path, get_save_backup_file_path, load_textareas, save_textareas,
+    EditorClipboard,
+};
 use anyhow::{bail, Result};
 use std::{
     fs::File,
@@ -31,6 +34,8 @@ pub enum Commands {
     List,
     /// Load backup file as the main thoth markdown file
     LoadBackup,
+    /// Read the contents of the clipboard backup file
+    ReadClipboard,
     /// Delete a block by name
     Delete {
         /// The name of the block to be deleted
@@ -46,6 +51,22 @@ pub enum Commands {
         /// The name of the block to be used
         name: String,
     },
+}
+
+pub fn read_clipboard_backup() -> Result<()> {
+    let file_path = crate::get_clipboard_backup_file_path();
+    if !file_path.exists() {
+        println!("No clipboard backup file found at {}", file_path.display());
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&file_path)?;
+    if content.is_empty() {
+        println!("Clipboard backup file exists but is empty.");
+    } else {
+        println!("{}", content);
+    }
+    Ok(())
 }
 
 pub fn add_block(name: &str, content: &str) -> Result<()> {
