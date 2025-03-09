@@ -233,7 +233,7 @@ impl ScrollableTextArea {
                 file.write_all(content.as_bytes())?;
 
                 return Err(anyhow::anyhow!(
-                "TESTING: Simulated clipboard failure.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                "TESTING: Simulated clipboard failure.\nContent saved to: {}\nPlease use 'thoth read_clipboard' to read the contents from STDOUT.",
                 backup_path.display()
             ));
             }
@@ -252,12 +252,12 @@ impl ScrollableTextArea {
 
                         if is_wayland {
                             return Err(anyhow::anyhow!(
-                            "Wayland clipboard error.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                            "Wayland clipboard error.\nContent saved to: {}\nPlease use 'thoth read_clipboard' to read the contents from STDOUT.",
                             backup_path.display()
                         ));
                         } else {
                             return Err(anyhow::anyhow!(
-                            "Clipboard error: {}.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                            "Clipboard error: {}.\nContent saved to: {}\nPlease use 'thoth read_clipboard' to read the contents from STDOUT.",
                             e.to_string().split('\n').next().unwrap_or("Unknown error"),
                             backup_path.display()
                         ));
@@ -270,7 +270,7 @@ impl ScrollableTextArea {
                     file.write_all(content.as_bytes())?;
 
                     return Err(anyhow::anyhow!(
-                    "Clipboard unavailable.\nContent saved to: {}\nPlease use 'thoth read-clipboard' to read the contents from STDOUT.",
+                    "Clipboard unavailable.\nContent saved to: {}\nPlease use 'thoth read_clipboard' to read the contents from STDOUT.",
                     backup_path.display()
                 ));
                 }

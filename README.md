@@ -207,7 +207,7 @@ When using Thoth in Wayland environments or over SSH, the system clipboard funct
 You can retrieve the content using:
 
 ```bash
-thoth read-clipboard
+thoth read_clipboard
 ```
 
 This ensures your content is always accessible, even when the system clipboard is unavailable.
