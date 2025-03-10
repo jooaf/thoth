@@ -9,6 +9,7 @@ pub mod ui;
 pub mod ui_handler;
 pub mod utils;
 
+pub use clipboard::ClipboardTrait;
 pub use clipboard::EditorClipboard;
 use dirs::home_dir;
 pub use formatter::{format_json, format_markdown};
@@ -24,6 +25,9 @@ pub fn get_save_file_path() -> PathBuf {
 }
 pub fn get_save_backup_file_path() -> PathBuf {
     home_dir().unwrap_or_default().join("thoth_notes_backup.md")
+}
+pub fn get_clipboard_backup_file_path() -> PathBuf {
+    home_dir().unwrap_or_default().join("thoth_clipboard.txt")
 }
 
 pub const ORANGE: ratatui::style::Color = ratatui::style::Color::Rgb(255, 165, 0);

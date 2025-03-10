@@ -9,6 +9,11 @@ use arboard::SetExtLinux;
 
 use crate::DAEMONIZE_ARG;
 
+pub trait ClipboardTrait {
+    fn set_contents(&mut self, content: String) -> anyhow::Result<()>;
+    fn get_content(&self) -> anyhow::Result<String>;
+}
+
 pub struct EditorClipboard {
     clipboard: Arc<Mutex<Clipboard>>,
 }
@@ -27,13 +32,30 @@ impl EditorClipboard {
     pub fn set_contents(&mut self, content: String) -> Result<(), Error> {
         #[cfg(target_os = "linux")]
         {
-            if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+            let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+                || std::env::var("XDG_SESSION_TYPE")
+                    .map(|v| v == "wayland")
+                    .unwrap_or(false);
+
+            if is_wayland {
                 let mut clipboard = self
                     .clipboard
                     .lock()
                     .map_err(|_e| arboard::Error::ContentNotAvailable)?;
-                clipboard.set().wait().text(content)?;
+
+                let result = clipboard.set().wait().text(content);
+                result
+            } else if env::args().nth(1).as_deref() == Some(DAEMONIZE_ARG) {
+                let mut clipboard = self
+                    .clipboard
+                    .lock()
+                    .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                clipboard.set().wait().text(content)
             } else {
+                if std::env::var("THOTH_DEBUG_CLIPBOARD").is_ok() {
+                    return Err(arboard::Error::ContentNotAvailable);
+                }
+
                 process::Command::new(env::current_exe().unwrap())
                     .arg(DAEMONIZE_ARG)
                     .arg(content)
@@ -43,16 +65,18 @@ impl EditorClipboard {
                     .current_dir("/")
                     .spawn()
                     .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+                Ok(())
             }
         }
 
         #[cfg(not(target_os = "linux"))]
         {
-            let mut clipboard = self.clipboard.lock().unwrap();
-            clipboard.set_text(content)?;
+            let mut clipboard = self
+                .clipboard
+                .lock()
+                .map_err(|_e| arboard::Error::ContentNotAvailable)?;
+            clipboard.set_text(content)
         }
-
-        Ok(())
     }
 
     pub fn get_content(&mut self) -> Result<String, Error> {

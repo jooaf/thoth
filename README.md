@@ -175,6 +175,7 @@ Commands:
   add          Add a new block to the scratchpad
   list         List all of the blocks within your thoth scratchpad
   load_backup  Load backup file as the main thoth markdown file
+  read_clipboard Read the contents of the clipboard backup file
   delete       Delete a block by name
   view         View (STDOUT) the contents of the block by name
   copy         Copy the contents of a block to the system clipboard
@@ -194,6 +195,22 @@ echo "Hello, World (from STDIN)" | thoth add hello_world_stdin;
 # Using view to pipe contents into another command
 thoth view hello_world_stdin | cat
 ```
+
+### Clipboard Fallback for Wayland Users
+
+When using Thoth in Wayland environments or over SSH, the system clipboard functionality may not be available. In these cases, when you use Ctrl+Y to copy content, Thoth will:
+
+1. Save the content to a backup file in your home directory
+2. Display a message with the location of the backup file
+3. Provide instructions to access the content
+
+You can retrieve the content using:
+
+```bash
+thoth read_clipboard
+```
+
+This ensures your content is always accessible, even when the system clipboard is unavailable.
 
 ## Contributions 
 Contributions are always welcomed :) !!! Please take a look at this [doc](https://github.com/jooaf/thoth/blob/main/CONTRIBUTING.md) for more information.

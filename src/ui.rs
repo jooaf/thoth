@@ -268,7 +268,9 @@ pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
                 .title(format!("{} - Esc to exit", popup.popup_title)),
-        );
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true }); // Enable text wrapping
+
     f.render_widget(text, area);
 }
 
