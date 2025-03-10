@@ -1,4 +1,9 @@
 
+## [0.1.78] - 2025-03-10
+
+- Fix: Copy Block in TUI for Wayland; Adding clipboard mocks (#28)
+
+
 ## [0.1.77] - 2025-02-24
 
 - Fix: Prevent duplicate input on Windows (#27)
