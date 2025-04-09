@@ -308,10 +308,11 @@ impl MarkdownRenderer {
 
     fn is_header(&self, line: &str) -> Option<(bool, usize)> {
         if let Some(header_level) = line.bytes().position(|b| b != b'#') {
-            if header_level > 0 && header_level <= 6 {
-                if line.as_bytes().get(header_level) == Some(&b' ') {
-                    return Some((true, header_level));
-                }
+            if header_level > 0
+                && header_level <= 6
+                && line.as_bytes().get(header_level) == Some(&b' ')
+            {
+                return Some((true, header_level));
             }
         }
         None
