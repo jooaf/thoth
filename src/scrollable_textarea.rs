@@ -399,7 +399,7 @@ impl ScrollableTextArea {
                     )?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
-                        .wrap(Wrap { trim: true });
+                        .wrap(Wrap { trim: false });
                     f.render_widget(paragraph, *chunk);
                 }
             }
@@ -464,7 +464,7 @@ impl ScrollableTextArea {
 
         let paragraph = Paragraph::new(rendered_markdown)
             .block(block)
-            .wrap(Wrap { trim: true })
+            .wrap(Wrap { trim: false })
             .scroll((self.scroll as u16, 0));
 
         f.render_widget(paragraph, area);
