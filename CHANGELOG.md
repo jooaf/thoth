@@ -1,4 +1,9 @@
 
+## [0.1.79] - 2025-04-09
+
+- Improvement: Updating markdown renderer (#29)
+
+
 ## [0.1.78] - 2025-03-10
 
 - Fix: Copy Block in TUI for Wayland; Adding clipboard mocks (#28)
