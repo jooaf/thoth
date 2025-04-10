@@ -1,4 +1,9 @@
 
+## [0.1.80] - 2025-04-10
+
+- Fix: Handling 'j' and 'k' in edit mode (#30)
+
+
 ## [0.1.79] - 2025-04-09
 
 - Improvement: Updating markdown renderer (#29)
