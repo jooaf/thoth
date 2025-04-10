@@ -163,20 +163,6 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                 state.scrollable_textarea.handle_scroll(1);
             }
         }
-        KeyCode::Char('k') => {
-            if state.scrollable_textarea.edit_mode {
-                handle_up_key(state, key);
-            } else {
-                state.scrollable_textarea.handle_scroll(-1);
-            }
-        }
-        KeyCode::Char('j') => {
-            if state.scrollable_textarea.edit_mode {
-                handle_down_key(state, key);
-            } else {
-                state.scrollable_textarea.handle_scroll(1);
-            }
-        }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             match state.scrollable_textarea.copy_focused_textarea_contents() {
                 Ok(_) => {
@@ -466,8 +452,8 @@ fn handle_normal_input(
         }
         KeyCode::Up => handle_up_key(state, key),
         KeyCode::Down => handle_down_key(state, key),
-        KeyCode::Char('k') => handle_up_key(state, key),
-        KeyCode::Char('j') => handle_down_key(state, key),
+        KeyCode::Char('k') if !state.scrollable_textarea.edit_mode => handle_up_key(state, key),
+        KeyCode::Char('j') if !state.scrollable_textarea.edit_mode => handle_down_key(state, key),
         _ => {
             if state.scrollable_textarea.edit_mode {
                 state.scrollable_textarea.textareas[state.scrollable_textarea.focused_index]
