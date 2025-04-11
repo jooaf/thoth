@@ -8,16 +8,11 @@ use crate::ThemeColors;
 use crate::DARK_MODE_COLORS;
 use crate::LIGHT_MODE_COLORS;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub enum ThemeMode {
     Light,
+    #[default]
     Dark,
-}
-
-impl Default for ThemeMode {
-    fn default() -> Self {
-        ThemeMode::Dark
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
