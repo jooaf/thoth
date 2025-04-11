@@ -1,4 +1,4 @@
-use crate::{get_save_backup_file_path, EditorClipboard};
+use crate::{get_save_backup_file_path, EditorClipboard, ThemeMode, ThothConfig};
 use anyhow::{bail, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers},
@@ -31,10 +31,12 @@ pub struct UIState {
     pub title_popup: TitlePopup,
     pub title_select_popup: TitleSelectPopup,
     pub error_popup: UiPopup,
+    pub help_popup: UiPopup,
     pub copy_popup: UiPopup,
     pub edit_commands_popup: EditCommandsPopup,
     pub clipboard: Option<EditorClipboard>,
     pub last_draw: Instant,
+    pub config: ThothConfig,
 }
 
 impl UIState {
@@ -51,15 +53,19 @@ impl UIState {
         }
         scrollable_textarea.initialize_scroll();
 
+        let config = ThothConfig::load()?;
+
         Ok(UIState {
             scrollable_textarea,
             title_popup: TitlePopup::new(),
             title_select_popup: TitleSelectPopup::new(),
-            error_popup: UiPopup::new("Error".to_string()),
-            copy_popup: UiPopup::new("Block Copied".to_string()),
+            error_popup: UiPopup::new("Error".to_string(), 60, 20),
+            copy_popup: UiPopup::new("Block Copied".to_string(), 60, 20),
+            help_popup: UiPopup::new("Keyboard Shortcuts".to_string(), 60, 80),
             edit_commands_popup: EditCommandsPopup::new(),
             clipboard: EditorClipboard::try_new(),
             last_draw: Instant::now(),
+            config,
         })
     }
 }
@@ -69,6 +75,8 @@ pub fn draw_ui(
     state: &mut UIState,
 ) -> Result<()> {
     terminal.draw(|f| {
+        let theme = state.config.get_theme_colors();
+
         let chunks = ratatui::layout::Layout::default()
             .direction(ratatui::layout::Direction::Vertical)
             .constraints(
@@ -80,29 +88,42 @@ pub fn draw_ui(
             )
             .split(f.size());
 
-        render_header(f, chunks[0], state.scrollable_textarea.edit_mode);
+        render_header(f, chunks[0], state.scrollable_textarea.edit_mode, theme);
         if state.scrollable_textarea.full_screen_mode {
-            state.scrollable_textarea.render(f, f.size()).unwrap();
+            state
+                .scrollable_textarea
+                .render(f, f.size(), theme)
+                .unwrap();
         } else {
-            state.scrollable_textarea.render(f, chunks[1]).unwrap();
+            state
+                .scrollable_textarea
+                .render(f, chunks[1], theme)
+                .unwrap();
         }
 
         if state.title_popup.visible {
-            render_title_popup(f, &state.title_popup);
+            render_title_popup(f, &state.title_popup, theme);
         } else if state.title_select_popup.visible {
-            render_title_select_popup(f, &state.title_select_popup);
+            render_title_select_popup(f, &state.title_select_popup, theme);
         }
 
         if state.edit_commands_popup.visible {
-            render_edit_commands_popup(f);
+            render_edit_commands_popup(f, theme);
         }
 
         if state.error_popup.visible {
-            render_ui_popup(f, &state.error_popup);
+            render_ui_popup(f, &state.error_popup, theme);
+        }
+        if state.help_popup.visible {
+            render_ui_popup(f, &state.help_popup, theme);
         }
 
         if state.copy_popup.visible {
-            render_ui_popup(f, &state.copy_popup);
+            render_ui_popup(f, &state.copy_popup, theme);
+        }
+
+        if state.help_popup.visible {
+            render_ui_popup(f, &state.help_popup, theme);
         }
     })?;
     Ok(())
@@ -240,11 +261,6 @@ fn handle_title_popup_input(state: &mut UIState, key: event::KeyEvent) -> Result
 }
 
 fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) -> Result<bool> {
-    // Subtract 2 from viewport height to account for the top and bottom borders
-    // drawn by Block::default().borders(Borders::ALL) in ui.rs render_title_select_popup.
-    // The borders are rendered using unicode box-drawing characters:
-    // top border    : ┌───┐
-    // bottom border : └───┘
     let visible_items =
         (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize - 10;
 
@@ -326,6 +342,13 @@ fn handle_normal_input(
                 }
             }
         }
+        KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            let new_theme = match state.config.theme {
+                ThemeMode::Light => ThemeMode::Dark,
+                ThemeMode::Dark => ThemeMode::Light,
+            };
+            state.config.set_theme(new_theme.clone())?;
+        }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             match state.scrollable_textarea.copy_focused_textarea_contents() {
                 Ok(_) => {
@@ -360,6 +383,37 @@ fn handle_normal_input(
         }
         KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             handle_paste(state)?;
+        }
+        KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            let help_message = "\
+NAVIGATION:
+  • ↑/↓ or j/k: Navigate between blocks
+  • Enter: Enter edit mode
+  • Esc: Exit current mode
+
+BLOCKS:
+  • ^n: Add a new block
+  • ^d: Delete current block
+  • ^t: Change block title
+  • ^s: Select block by title
+  • ^f: Toggle fullscreen mode
+
+CLIPBOARD:
+  • ^y: Copy current block
+  • ^v: Paste from clipboard
+  • ^b: Copy selection (in edit mode)
+
+FORMATTING:
+  • ^j: Format as JSON
+  • ^k: Format as Markdown
+
+OTHER:
+  • ^l: Toggle light/dark theme
+  • ^e: Edit with external editor (in edit mode)
+  • q: Quit application
+  • ^h: Show this help";
+
+            state.help_popup.show(help_message.to_string());
         }
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             if !state.scrollable_textarea.edit_mode {
@@ -445,6 +499,9 @@ fn handle_normal_input(
 
             if state.error_popup.visible {
                 state.error_popup.hide();
+            }
+            if state.help_popup.visible {
+                state.help_popup.hide();
             }
             if state.copy_popup.visible {
                 state.copy_popup.hide();

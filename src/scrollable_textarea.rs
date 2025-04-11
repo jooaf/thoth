@@ -5,14 +5,14 @@ use std::{
     rc::Rc,
 };
 
-use crate::{EditorClipboard, BORDER_PADDING_SIZE, MIN_TEXTAREA_HEIGHT};
-use crate::{MarkdownRenderer, ORANGE};
+use crate::MarkdownRenderer;
+use crate::{EditorClipboard, ThemeColors, BORDER_PADDING_SIZE, MIN_TEXTAREA_HEIGHT};
 use anyhow;
 use anyhow::Result;
 use rand::Rng;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::Text,
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
@@ -297,33 +297,33 @@ impl ScrollableTextArea {
         Ok(())
     }
 
-    fn render_full_screen_edit(&mut self, f: &mut Frame, area: Rect) {
+    fn render_full_screen_edit(&mut self, f: &mut Frame, area: Rect, theme: &ThemeColors) {
         let textarea = &mut self.textareas[self.focused_index];
         let title = &self.titles[self.focused_index];
 
         let block = Block::default()
             .title(title.clone())
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(ORANGE));
+            .border_style(Style::default().fg(theme.primary));
 
-        let edit_style = Style::default().fg(Color::White).bg(Color::Black);
-        let cursor_style = Style::default().fg(Color::White).bg(ORANGE);
+        let edit_style = Style::default().fg(theme.foreground).bg(theme.background);
+        let cursor_style = Style::default().fg(theme.foreground).bg(theme.accent);
 
         textarea.set_block(block);
         textarea.set_style(edit_style);
         textarea.set_cursor_style(cursor_style);
-        textarea.set_selection_style(Style::default().bg(Color::Red));
+        textarea.set_selection_style(Style::default().bg(theme.selection));
         f.render_widget(textarea.widget(), area);
     }
 
-    pub fn render(&mut self, f: &mut Frame, area: Rect) -> Result<()> {
+    pub fn render(&mut self, f: &mut Frame, area: Rect, theme: &ThemeColors) -> Result<()> {
         self.viewport_height = area.height;
 
         if self.full_screen_mode {
             if self.edit_mode {
-                self.render_full_screen_edit(f, area);
+                self.render_full_screen_edit(f, area, theme);
             } else {
-                self.render_full_screen(f, area)?;
+                self.render_full_screen(f, area, theme)?;
             }
         } else {
             let mut remaining_height = area.height;
@@ -371,24 +371,25 @@ impl ScrollableTextArea {
 
                 let style = if is_focused {
                     if is_editing {
-                        Style::default().fg(Color::White).bg(Color::Black)
+                        Style::default().fg(theme.foreground).bg(theme.background)
                     } else {
-                        Style::default().fg(Color::Black).bg(Color::DarkGray)
+                        Style::default().fg(theme.background).bg(theme.selection)
                     }
                 } else {
-                    Style::default().fg(Color::White).bg(Color::Reset)
+                    Style::default().fg(theme.foreground).bg(theme.background)
                 };
 
                 let block = Block::default()
                     .title(title.to_owned())
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(ORANGE))
+                    .border_style(Style::default().fg(theme.primary))
                     .style(style);
 
                 if is_editing {
                     textarea.set_block(block);
                     textarea.set_style(style);
-                    textarea.set_cursor_style(Style::default().fg(Color::White).bg(ORANGE));
+                    textarea
+                        .set_cursor_style(Style::default().fg(theme.foreground).bg(theme.accent));
                     f.render_widget(textarea.widget(), *chunk);
                 } else {
                     let content = textarea.lines().join("\n");
@@ -445,15 +446,15 @@ impl ScrollableTextArea {
         }
     }
 
-    fn render_full_screen(&mut self, f: &mut Frame, area: Rect) -> Result<()> {
+    fn render_full_screen(&mut self, f: &mut Frame, area: Rect, theme: &ThemeColors) -> Result<()> {
         let textarea = &mut self.textareas[self.focused_index];
-        textarea.set_selection_style(Style::default().bg(Color::Red));
+        textarea.set_selection_style(Style::default().bg(theme.selection));
         let title = &self.titles[self.focused_index];
 
         let block = Block::default()
             .title(title.clone())
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(ORANGE));
+            .border_style(Style::default().fg(theme.primary));
 
         let content = textarea.lines().join("\n");
         let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(
