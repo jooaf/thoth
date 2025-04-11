@@ -108,6 +108,25 @@ The binary lives in `thoth/target/release/thoth`. You can add the binary to your
 ## Usage 
 This will show how to use the scratchpad via the CLI or the TUI. 
 
+### Theme
+You can set the theme via the CLI or in the TUI.
+```bash
+# Set to light mode
+thoth theme light
+
+# Set to dark mode
+thoth theme dark
+
+# Check current theme
+thoth get_theme
+````
+#### UI Shortcuts
+Users can toggle between light and dark modes while using the application:
+- Ctrl+L: Toggle between light and dark modes
+
+#### Persistent Configuration
+Theme preferences are stored in ~/.config/thoth/config.toml and persist between TUI sessions.
+
 ### TUI 
 To start the TUI, simply type `thoth`. Since it is a persistent buffer, thoth will save when you hit quit using `q`.
 
@@ -172,14 +191,16 @@ A terminal scratchpad akin to Heynote
 Usage: thoth [COMMAND]
 
 Commands:
-  add          Add a new block to the scratchpad
-  list         List all of the blocks within your thoth scratchpad
-  load_backup  Load backup file as the main thoth markdown file
-  read_clipboard Read the contents of the clipboard backup file
-  delete       Delete a block by name
-  view         View (STDOUT) the contents of the block by name
-  copy         Copy the contents of a block to the system clipboard
-  help         Print this message or the help of the given subcommand(s)
+  add             Add a new block to the scratchpad
+  list            List all of the blocks within your thoth scratchpad
+  load_backup     Load backup file as the main thoth markdown file
+  read_clipboard  Read the contents of the clipboard backup file
+  delete          Delete a block by name
+  view            View (STDOUT) the contents of the block by name
+  copy            Copy the contents of a block to the system clipboard
+  theme           Set the theme to light or dark mode
+  get_theme       Get the current theme
+  help            Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -216,6 +237,6 @@ This ensures your content is always accessible, even when the system clipboard i
 Contributions are always welcomed :) !!! Please take a look at this [doc](https://github.com/jooaf/thoth/blob/main/CONTRIBUTING.md) for more information.
 
 ## TODO
-- Inlcude light mode 
+- Inlcude light mode: Done!
 - Automatically saving backup `thoth_notes.md` files: Done! 
 - Add fuzzy finder for selecting blocks in TUI: Done!
