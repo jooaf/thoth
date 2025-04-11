@@ -1,4 +1,9 @@
 
+## [0.1.81] - 2025-04-11
+
+- Feature: Adding Light and Dark Mode (#31)
+
+
 ## [0.1.80] - 2025-04-10
 
 - Fix: Handling 'j' and 'k' in edit mode (#30)
