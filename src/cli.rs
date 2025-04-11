@@ -1,4 +1,7 @@
-use crate::{get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard};
+use crate::{
+    get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard, ThemeMode,
+    ThothConfig,
+};
 use anyhow::{bail, Result};
 use std::{
     fs::File,
@@ -48,6 +51,46 @@ pub enum Commands {
         /// The name of the block to be used
         name: String,
     },
+    /// Set the theme to light or dark mode
+    Theme {
+        /// The theme to set: 'light' or 'dark'
+        mode: String,
+    },
+    /// Get the current theme
+    GetTheme,
+}
+
+pub fn set_theme(mode: &str) -> Result<()> {
+    let mode_lowercase = mode.to_lowercase();
+
+    let mut config = ThothConfig::load()?;
+
+    match mode_lowercase.as_str() {
+        "light" => {
+            config.set_theme(ThemeMode::Light)?;
+            println!("Theme set to light mode");
+        }
+        "dark" => {
+            config.set_theme(ThemeMode::Dark)?;
+            println!("Theme set to dark mode");
+        }
+        _ => {
+            bail!("Invalid theme mode. Use 'light' or 'dark'");
+        }
+    }
+
+    Ok(())
+}
+
+pub fn get_theme() -> Result<()> {
+    let config = ThothConfig::load()?;
+
+    match config.theme {
+        ThemeMode::Light => println!("Current theme: light"),
+        ThemeMode::Dark => println!("Current theme: dark"),
+    }
+
+    Ok(())
 }
 
 pub fn read_clipboard_backup() -> Result<()> {

@@ -12,8 +12,8 @@ use std::{
 };
 use thoth_cli::{
     cli::{
-        add_block, copy_block, delete_block, list_blocks, read_clipboard_backup,
-        replace_from_backup, view_block,
+        add_block, copy_block, delete_block, get_theme, list_blocks, read_clipboard_backup,
+        replace_from_backup, set_theme, view_block,
     },
     get_save_backup_file_path, EditorClipboard,
 };
@@ -65,6 +65,12 @@ fn main() -> Result<()> {
         }
         Some(Commands::Copy { name }) => {
             copy_block(name)?;
+        }
+        Some(Commands::Theme { mode }) => {
+            set_theme(mode)?;
+        }
+        Some(Commands::GetTheme) => {
+            get_theme()?;
         }
         None => {
             run_ui()?;

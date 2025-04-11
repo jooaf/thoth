@@ -1,7 +1,7 @@
-use crate::{TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, ORANGE};
+use crate::{ThemeColors, TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, DARK_MODE_COLORS};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
     Frame,
@@ -27,14 +27,18 @@ pub struct UiPopup {
     pub message: String,
     pub popup_title: String,
     pub visible: bool,
+    pub percent_x: u16,
+    pub percent_y: u16,
 }
 
 impl UiPopup {
-    pub fn new(popup_tile: String) -> Self {
+    pub fn new(popup_title: String, percent_x: u16, percent_y: u16) -> Self {
         UiPopup {
             message: String::new(),
             visible: false,
-            popup_title: popup_tile,
+            popup_title,
+            percent_x,
+            percent_y,
         }
     }
 
@@ -50,22 +54,30 @@ impl UiPopup {
 
 impl Default for UiPopup {
     fn default() -> Self {
-        Self::new("".to_owned())
+        Self::new("".to_owned(), 60, 20)
     }
 }
 
-pub fn render_edit_commands_popup(f: &mut Frame) {
+pub fn render_edit_commands_popup(f: &mut Frame, theme: &ThemeColors) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(ORANGE))
-        .title("Editing Commands");
+        .border_style(Style::default().fg(theme.primary))
+        .title("Editing Commands - Esc to exit");
 
     let header = Row::new(vec![
-        Cell::from("MAPPINGS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
-        Cell::from("DESCRIPTIONS").style(Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)),
+        Cell::from("MAPPINGS").style(
+            Style::default()
+                .fg(theme.accent)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Cell::from("DESCRIPTIONS").style(
+            Style::default()
+                .fg(theme.accent)
+                .add_modifier(Modifier::BOLD),
+        ),
     ])
     .height(BORDER_PADDING_SIZE as u16);
 
@@ -97,6 +109,7 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
             "Ctrl+A, Home, Ctrl+Alt+B, Ctrl+Alt+←",
             "Move cursor to the head of line",
         ]),
+        Row::new(vec!["Ctrl+L", "Toggle between light and dark mode"]),
         Row::new(vec!["Ctrl+K", "Format markdown block"]),
         Row::new(vec!["Ctrl+J", "Format JSON"]),
     ];
@@ -106,16 +119,17 @@ pub fn render_edit_commands_popup(f: &mut Frame) {
         .block(block)
         .widths([Constraint::Percentage(30), Constraint::Percentage(70)])
         .column_spacing(BORDER_PADDING_SIZE as u16)
-        .highlight_style(Style::default().fg(Color::Yellow))
+        .highlight_style(Style::default().fg(theme.accent))
         .highlight_symbol(">> ");
 
     f.render_widget(table, area);
 }
 
-pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
+pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool, theme: &ThemeColors) {
     let available_width = area.width as usize;
     let normal_commands = vec![
         "q:Quit",
+        "^h:Help",
         "^n:Add",
         "^d:Del",
         "^y:Copy",
@@ -125,6 +139,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
         "Esc:Exit",
         "^t:Title",
         "^s:Select",
+        "^l:Toggle Theme",
         "^j:Format JSON",
         "^k:Format Markdown",
     ];
@@ -138,6 +153,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
         "^s:Select",
         "^e:External Editor",
         "^h:Help",
+        "^l:Toggle Theme",
     ];
     let commands = if is_edit_mode {
         &edit_commands
@@ -169,34 +185,61 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool) {
     let padding = " ".repeat(available_width - command_width - thoth_width - BORDER_PADDING_SIZE);
 
     let header = Line::from(vec![
-        Span::styled(command_string, Style::default().fg(ORANGE)),
-        Span::styled(padding, Style::default().fg(ORANGE)),
-        Span::styled(format!(" {} ", thoth), Style::default().fg(ORANGE)),
+        Span::styled(command_string, Style::default().fg(theme.accent)),
+        Span::styled(padding, Style::default().fg(theme.accent)),
+        Span::styled(format!(" {} ", thoth), Style::default().fg(theme.accent)),
     ]);
 
     let tabs = Tabs::new(vec![header])
-        .style(Style::default().bg(Color::Black))
-        .divider(Span::styled("|", Style::default().fg(ORANGE)));
+        .style(Style::default().bg(theme.header_bg))
+        .divider(Span::styled("|", Style::default().fg(theme.accent)));
 
     f.render_widget(tabs, area);
 }
 
-pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup) {
+pub fn render_help_popup(f: &mut Frame, popup: &UiPopup, theme: ThemeColors) {
+    if !popup.visible {
+        return;
+    }
+
+    let area = centered_rect(80, 80, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let border_color = if theme == *DARK_MODE_COLORS {
+        theme.accent
+    } else {
+        theme.primary
+    };
+
+    let text = Paragraph::new(popup.message.as_str())
+        .style(Style::default().fg(theme.foreground))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(border_color))
+                .title(format!("{} - Esc to exit", popup.popup_title)),
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(text, area);
+}
+
+pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup, theme: &ThemeColors) {
     let area = centered_rect(60, 20, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
     let text = Paragraph::new(popup.title.as_str())
-        .style(Style::default().bg(Color::Black))
+        .style(Style::default().bg(theme.background).fg(theme.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(ORANGE))
+                .border_style(Style::default().fg(theme.primary))
                 .title("Change Title"),
         );
     f.render_widget(text, area);
 }
 
-pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
+pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup, theme: &ThemeColors) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
@@ -224,7 +267,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
             if absolute_idx == popup.selected_index {
                 Line::from(vec![Span::styled(
                     format!("> {}", title_match.title),
-                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(theme.accent),
                 )])
             } else {
                 Line::from(vec![Span::raw(format!("  {}", title_match.title))])
@@ -234,7 +277,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(ORANGE))
+        .border_style(Style::default().fg(theme.primary))
         .title("Select Title");
 
     let paragraph = Paragraph::new(items)
@@ -245,7 +288,7 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
 
     let search_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(ORANGE))
+        .border_style(Style::default().fg(theme.primary))
         .title("Search");
 
     let search_text = Paragraph::new(popup.search_query.as_str()).block(search_block);
@@ -253,20 +296,20 @@ pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup) {
     f.render_widget(search_text, search_box);
 }
 
-pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup) {
+pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup, theme: &ThemeColors) {
     if !popup.visible {
         return;
     }
 
-    let area = centered_rect(60, 20, f.size());
+    let area = centered_rect(popup.percent_x, popup.percent_y, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
     let text = Paragraph::new(popup.message.as_str())
-        .style(Style::default().fg(Color::Red))
+        .style(Style::default().fg(theme.error))
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Red))
+                .border_style(Style::default().fg(theme.error))
                 .title(format!("{} - Esc to exit", popup.popup_title)),
         )
         .wrap(ratatui::widgets::Wrap { trim: true }); // Enable text wrapping
@@ -304,6 +347,9 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 mod tests {
     use ratatui::{backend::TestBackend, Terminal};
 
+    use crate::DARK_MODE_COLORS;
+    use crate::ORANGE;
+
     use super::*;
 
     #[test]
@@ -324,7 +370,7 @@ mod tests {
         terminal
             .draw(|f| {
                 let area = f.size();
-                render_header(f, area, false);
+                render_header(f, area, false, &DARK_MODE_COLORS);
             })
             .unwrap();
 
@@ -361,7 +407,7 @@ mod tests {
 
         terminal
             .draw(|f| {
-                render_title_popup(f, &popup);
+                render_title_popup(f, &popup, &DARK_MODE_COLORS);
             })
             .unwrap();
 
@@ -410,7 +456,7 @@ mod tests {
 
         terminal
             .draw(|f| {
-                render_title_select_popup(f, &popup);
+                render_title_select_popup(f, &popup, &DARK_MODE_COLORS);
             })
             .unwrap();
 
@@ -438,7 +484,7 @@ mod tests {
 
         terminal
             .draw(|f| {
-                render_edit_commands_popup(f);
+                render_edit_commands_popup(f, &DARK_MODE_COLORS);
             })
             .unwrap();
 
