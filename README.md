@@ -8,6 +8,7 @@
 
 ![thoth](https://github.com/user-attachments/assets/b5954aac-b20f-4c24-af7c-67dc6224df89)
 
+![thoth_code](https://github.com/user-attachments/assets/58277dbb-42fd-4c88-9fa9-3851dff01460)
 
 A terminal scratchpad inspired by [Heynote](https://github.com/heyman/heynote). 
 
@@ -22,6 +23,7 @@ to also be displayable in the app.
 - Blocks are titled and can be selected by title.
 - The ability to edit a block using your favorite terminal editor such as Neovim, Helix, Vim, and others via setting the `$EDITOR` or `$VISUAL` environment variables.
 - A CLI that allows one to pipe information via STDIN into a new block, or use STDOUT to get text out of a block. 
+
 
 
 ## Why the name Thoth? 
@@ -133,14 +135,17 @@ To start the TUI, simply type `thoth`. Since it is a persistent buffer, thoth wi
 #### Commands for main mode 
 ```
 q: Quit 
+<ctrl-h>: Keyboard shortcuts
 <ctrl-n>: Add block in focus
 <ctrl-d>: Delete block in focus
 <ctrl-y>: Copy the complete block
+<ctrl-c>: Copy code block
 Enter: Edit block 
 <ctrl-f>: Full Screen 
 Esc: Exit 
 <ctrl-t>: Change title of block 
 <ctrl-s>: Select block by title
+<ctrl-l>: Toggle between light and dark mode
 <ctrl-j>: Format json
 <ctrl-k>: Format markdown 
 ```
@@ -150,8 +155,10 @@ Esc: Exit edit mode
 <ctrl-g>: Move cursor top 
 <ctrl-b>: Copy highlighted selection 
 Shift-Up Arrow or Down: Make highlighted selection by line
+<ctrl-c>: Copy code block
 <ctrl-y>: Copy the entire block
-<ctrl-t>: Change title of block 
+<ctrl-t>: Change title of block
+<ctrl-l>: Toggle between light and dark mode 
 <ctrl-s>: Select block by title 
 <ctrl-e>: Use external editor 
 <ctrl-h>: Bring up other commands
