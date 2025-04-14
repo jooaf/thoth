@@ -106,6 +106,9 @@ pub fn draw_ui(
                 .unwrap();
         }
 
+        if state.copy_popup.visible {
+            render_ui_popup(f, &state.copy_popup, theme);
+        }
         if state.title_popup.visible {
             render_title_popup(f, &state.title_popup, theme);
         } else if state.title_select_popup.visible {
@@ -123,10 +126,6 @@ pub fn draw_ui(
         }
         if state.help_popup.visible {
             render_ui_popup(f, &state.help_popup, theme);
-        }
-
-        if state.copy_popup.visible {
-            render_ui_popup(f, &state.copy_popup, theme);
         }
 
         if state.help_popup.visible {
@@ -240,31 +239,64 @@ pub fn handle_input(
         return Ok(false);
     }
 
-    if state.scrollable_textarea.full_screen_mode {
-        handle_full_screen_input(state, key)
+    if state.code_block_popup.visible {
+        handle_code_block_popup_input(state, key)
+    } else if state.scrollable_textarea.full_screen_mode {
+        handle_full_screen_input(terminal, state, key)
     } else if state.title_popup.visible {
         handle_title_popup_input(state, key)
     } else if state.title_select_popup.visible {
         handle_title_select_popup_input(state, key)
-    } else if state.code_block_popup.visible {
-        handle_code_block_popup_input(state, key)
     } else {
         handle_normal_input(terminal, state, key)
     }
 }
 
-fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result<bool> {
+fn handle_full_screen_input(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    state: &mut UIState,
+    key: event::KeyEvent,
+) -> Result<bool> {
     match key.code {
         KeyCode::Esc => {
-            if state.scrollable_textarea.edit_mode {
+            if state.copy_popup.visible {
+                state.copy_popup.hide();
+            } else if state.error_popup.visible {
+                state.error_popup.hide();
+            } else if state.help_popup.visible {
+                state.help_popup.hide();
+            } else if state.edit_commands_popup.visible {
+                state.edit_commands_popup.visible = false;
+            } else if state.scrollable_textarea.edit_mode {
                 state.scrollable_textarea.edit_mode = false;
             } else {
                 state.scrollable_textarea.toggle_full_screen();
+                state
+                    .scrollable_textarea
+                    .jump_to_textarea(state.scrollable_textarea.focused_index);
             }
+        }
+        KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if state.scrollable_textarea.edit_mode {
+                match edit_with_external_editor(state) {
+                    Ok(edited_content) => {
+                        let mut new_textarea = TextArea::default();
+                        for line in edited_content.lines() {
+                            new_textarea.insert_str(line);
+                            new_textarea.insert_newline();
+                        }
+                        state.scrollable_textarea.textareas
+                            [state.scrollable_textarea.focused_index] = new_textarea;
 
-            state
-                .scrollable_textarea
-                .jump_to_textarea(state.scrollable_textarea.focused_index);
+                        terminal.clear()?;
+                    }
+                    Err(e) => {
+                        state
+                            .error_popup
+                            .show(format!("Failed to edit with external editor: {}", e));
+                    }
+                }
+            }
         }
         KeyCode::Enter => {
             if !state.scrollable_textarea.edit_mode {
@@ -286,6 +318,18 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                 handle_down_key(state, key);
             } else {
                 state.scrollable_textarea.handle_scroll(1);
+            }
+        }
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if !state.scrollable_textarea.edit_mode {
+                if let Err(e) = extract_and_show_code_blocks(state) {
+                    state
+                        .error_popup
+                        .show(format!("Error extracting code blocks: {}", e));
+                }
+            } else {
+                state.scrollable_textarea.textareas[state.scrollable_textarea.focused_index]
+                    .input(key);
             }
         }
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -311,22 +355,6 @@ fn handle_full_screen_input(state: &mut UIState, key: event::KeyEvent) -> Result
                 Err(e) => {
                     state.error_popup.show(format!("{}", e));
                 }
-            }
-        }
-        KeyCode::Char('s')
-            if key.modifiers.contains(KeyModifiers::ALT)
-                && key.modifiers.contains(KeyModifiers::SHIFT) =>
-        {
-            if state.scrollable_textarea.edit_mode {
-                state.scrollable_textarea.textareas[state.scrollable_textarea.focused_index]
-                    .start_selection();
-            }
-        }
-        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            if let Err(e) = state.scrollable_textarea.copy_selection_contents() {
-                state
-                    .error_popup
-                    .show(format!("Failed to copy to clipboard: {}", e));
             }
         }
         _ => {
