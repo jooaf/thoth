@@ -1,4 +1,9 @@
 
+## [0.1.83] - 2025-04-14
+
+- Documentation: Update README to reflect copy block feature (#33)
+
+
 ## [0.1.82] - 2025-04-14
 
 - Feature: Adding copy code blocks in TUI (#32)
