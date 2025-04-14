@@ -1,4 +1,7 @@
+use crate::code_block_popup::CodeBlockPopup;
 use crate::{ThemeColors, TitlePopup, TitleSelectPopup, BORDER_PADDING_SIZE, DARK_MODE_COLORS};
+use ratatui::style::Color;
+use ratatui::widgets::Wrap;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
@@ -133,6 +136,7 @@ pub fn render_header(f: &mut Frame, area: Rect, is_edit_mode: bool, theme: &Them
         "^n:Add",
         "^d:Del",
         "^y:Copy",
+        "^c:Copy Code",
         "^v:Paste",
         "Enter:Edit",
         "^f:Focus",
@@ -239,6 +243,82 @@ pub fn render_title_popup(f: &mut Frame, popup: &TitlePopup, theme: &ThemeColors
     f.render_widget(text, area);
 }
 
+pub fn render_code_block_popup(f: &mut Frame, popup: &CodeBlockPopup, theme: &ThemeColors) {
+    if !popup.visible || popup.filtered_blocks.is_empty() {
+        return;
+    }
+
+    let area = centered_rect(80, 80, f.size());
+    f.render_widget(ratatui::widgets::Clear, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(1)])
+        .split(area);
+
+    let title_area = chunks[0];
+    let code_area = chunks[1];
+
+    let title_block = Block::default()
+        .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+        .border_style(Style::default().fg(theme.primary))
+        .title(format!(
+            "Code Block {}/{} [{}]",
+            popup.selected_index + 1,
+            popup.filtered_blocks.len(),
+            if !popup.filtered_blocks.is_empty() {
+                popup.filtered_blocks[popup.selected_index].language.clone()
+            } else {
+                String::new()
+            }
+        ));
+
+    let title_text = vec![Line::from(vec![
+        Span::raw("  "),
+        Span::styled("↑/↓", Style::default().fg(theme.accent)),
+        Span::raw(": Navigate  "),
+        Span::styled("Enter", Style::default().fg(theme.accent)),
+        Span::raw(": Copy  "),
+        Span::styled("Esc", Style::default().fg(theme.accent)),
+        Span::raw(": Cancel"),
+    ])];
+
+    let title_paragraph = Paragraph::new(title_text).block(title_block);
+
+    f.render_widget(title_paragraph, title_area);
+
+    if !popup.filtered_blocks.is_empty() {
+        let selected_block = &popup.filtered_blocks[popup.selected_index];
+
+        let code_content = selected_block.content.clone();
+        let _language = &selected_block.language;
+
+        let lines: Vec<Line> = code_content
+            .lines()
+            .enumerate()
+            .map(|(i, line)| {
+                Line::from(vec![
+                    Span::styled(
+                        format!("{:3} │ ", i + 1),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::raw(line),
+                ])
+            })
+            .collect();
+
+        let code_block = Block::default()
+            .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
+            .border_style(Style::default().fg(theme.primary));
+
+        let code_paragraph = Paragraph::new(lines)
+            .block(code_block)
+            .wrap(Wrap { trim: false });
+
+        f.render_widget(code_paragraph, code_area);
+    }
+}
+
 pub fn render_title_select_popup(f: &mut Frame, popup: &TitleSelectPopup, theme: &ThemeColors) {
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
@@ -312,7 +392,7 @@ pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup, theme: &ThemeColors) {
                 .border_style(Style::default().fg(theme.error))
                 .title(format!("{} - Esc to exit", popup.popup_title)),
         )
-        .wrap(ratatui::widgets::Wrap { trim: true }); // Enable text wrapping
+        .wrap(ratatui::widgets::Wrap { trim: true });
 
     f.render_widget(text, area);
 }

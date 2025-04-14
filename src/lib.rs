@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod clipboard;
+pub mod code_block_popup;
 pub mod config;
 pub mod formatter;
 pub mod markdown_renderer;
@@ -13,6 +14,7 @@ pub mod utils;
 
 pub use clipboard::ClipboardTrait;
 pub use clipboard::EditorClipboard;
+pub use code_block_popup::CodeBlockPopup;
 pub use config::{ThemeMode, ThothConfig};
 use dirs::home_dir;
 pub use formatter::{format_json, format_markdown};
