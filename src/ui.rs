@@ -251,19 +251,14 @@ pub fn render_code_block_popup(f: &mut Frame, popup: &CodeBlockPopup, theme: &Th
     let area = centered_rect(80, 80, f.size());
     f.render_widget(ratatui::widgets::Clear, area);
 
-    // Split the area into two parts: selection list and code preview
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title + borders
-            Constraint::Min(1),    // Code content area
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(1)])
         .split(area);
 
     let title_area = chunks[0];
     let code_area = chunks[1];
 
-    // Create the title block
     let title_block = Block::default()
         .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
         .border_style(Style::default().fg(theme.primary))
@@ -278,7 +273,6 @@ pub fn render_code_block_popup(f: &mut Frame, popup: &CodeBlockPopup, theme: &Th
             }
         ));
 
-    // Render title with navigation instructions
     let title_text = vec![Line::from(vec![
         Span::raw("  "),
         Span::styled("↑/↓", Style::default().fg(theme.accent)),
@@ -398,7 +392,7 @@ pub fn render_ui_popup(f: &mut Frame, popup: &UiPopup, theme: &ThemeColors) {
                 .border_style(Style::default().fg(theme.error))
                 .title(format!("{} - Esc to exit", popup.popup_title)),
         )
-        .wrap(ratatui::widgets::Wrap { trim: true }); // Enable text wrapping
+        .wrap(ratatui::widgets::Wrap { trim: true });
 
     f.render_widget(text, area);
 }
