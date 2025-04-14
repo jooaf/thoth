@@ -1,4 +1,9 @@
 
+## [0.1.82] - 2025-04-14
+
+- Feature: Adding copy code blocks in TUI (#32)
+
+
 ## [0.1.81] - 2025-04-11
 
 - Feature: Adding Light and Dark Mode (#31)
