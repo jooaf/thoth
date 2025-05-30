@@ -5,8 +5,8 @@ use std::{
     rc::Rc,
 };
 
-use crate::MarkdownRenderer;
 use crate::{EditorClipboard, ThemeColors, BORDER_PADDING_SIZE, MIN_TEXTAREA_HEIGHT};
+use crate::{MarkdownRenderer, ThemeMode};
 use anyhow;
 use anyhow::Result;
 use rand::Rng;
@@ -25,18 +25,36 @@ const RENDER_CACHE_SIZE: usize = 100;
 struct MarkdownCache {
     cache: HashMap<String, Text<'static>>,
     renderer: MarkdownRenderer,
+    current_theme: ThemeMode,
 }
 
 impl MarkdownCache {
-    fn new() -> Self {
+    fn new(theme_mode: &ThemeMode) -> Self {
         MarkdownCache {
             cache: HashMap::with_capacity(RENDER_CACHE_SIZE),
-            renderer: MarkdownRenderer::new(),
+            renderer: MarkdownRenderer::new(theme_mode),
+            current_theme: theme_mode.clone(),
         }
     }
 
-    fn get_or_render(&mut self, content: &str, title: &str, width: usize) -> Result<Text<'static>> {
-        let cache_key = format!("{}:{}", title, content);
+    fn update_theme(&mut self, theme_mode: &ThemeMode) {
+        if self.current_theme != *theme_mode {
+            self.renderer.set_theme(theme_mode);
+            self.current_theme = theme_mode.clone();
+            self.cache.clear();
+        }
+    }
+
+    fn get_or_render(
+        &mut self,
+        content: &str,
+        title: &str,
+        width: usize,
+        theme_mode: &ThemeMode,
+    ) -> Result<Text<'static>> {
+        self.update_theme(theme_mode);
+
+        let cache_key = format!("{}:{}:{:?}", title, content, theme_mode);
         if let Some(cached) = self.cache.get(&cache_key) {
             return Ok(cached.clone());
         }
@@ -87,7 +105,7 @@ impl ScrollableTextArea {
             full_screen_mode: false,
             viewport_height: 0,
             start_sel: 0,
-            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new())),
+            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new(&ThemeMode::Dark))),
         }
     }
 
@@ -316,14 +334,20 @@ impl ScrollableTextArea {
         f.render_widget(textarea.widget(), area);
     }
 
-    pub fn render(&mut self, f: &mut Frame, area: Rect, theme: &ThemeColors) -> Result<()> {
+    pub fn render(
+        &mut self,
+        f: &mut Frame,
+        area: Rect,
+        theme: &ThemeColors,
+        theme_mode: &ThemeMode,
+    ) -> Result<()> {
         self.viewport_height = area.height;
 
         if self.full_screen_mode {
             if self.edit_mode {
                 self.render_full_screen_edit(f, area, theme);
             } else {
-                self.render_full_screen(f, area, theme)?;
+                self.render_full_screen(f, area, theme, theme_mode)?;
             }
         } else {
             let mut remaining_height = area.height;
@@ -397,6 +421,7 @@ impl ScrollableTextArea {
                         &content,
                         title,
                         f.size().width as usize - BORDER_PADDING_SIZE,
+                        theme_mode,
                     )?;
                     let paragraph = Paragraph::new(rendered_markdown)
                         .block(block)
@@ -446,7 +471,13 @@ impl ScrollableTextArea {
         }
     }
 
-    fn render_full_screen(&mut self, f: &mut Frame, area: Rect, theme: &ThemeColors) -> Result<()> {
+    fn render_full_screen(
+        &mut self,
+        f: &mut Frame,
+        area: Rect,
+        theme: &ThemeColors,
+        theme_mode: &ThemeMode,
+    ) -> Result<()> {
         let textarea = &mut self.textareas[self.focused_index];
         textarea.set_selection_style(Style::default().bg(theme.selection));
         let title = &self.titles[self.focused_index];
@@ -461,6 +492,7 @@ impl ScrollableTextArea {
             &content,
             title,
             f.size().width as usize - BORDER_PADDING_SIZE,
+            theme_mode,
         )?;
 
         let paragraph = Paragraph::new(rendered_markdown)
@@ -490,7 +522,7 @@ mod tests {
             full_screen_mode: false,
             viewport_height: 0,
             start_sel: 0,
-            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new())),
+            markdown_cache: Rc::new(RefCell::new(MarkdownCache::new(&ThemeMode::Dark))),
         }
     }
 

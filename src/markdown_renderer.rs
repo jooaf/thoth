@@ -11,6 +11,8 @@ use syntect::{
     parsing::{SyntaxReference, SyntaxSet},
 };
 
+use crate::ThemeMode;
+
 pub struct MarkdownRenderer {
     syntax_set: SyntaxSet,
     theme_set: ThemeSet,
@@ -28,18 +30,32 @@ const HEADER_COLORS: [Color; 6] = [
 
 impl Default for MarkdownRenderer {
     fn default() -> Self {
-        Self::new()
+        Self::new(&ThemeMode::Dark)
     }
 }
 
 impl MarkdownRenderer {
-    pub fn new() -> Self {
+    pub fn new(theme_mode: &ThemeMode) -> Self {
+        let theme_name = match theme_mode {
+            ThemeMode::Light => "base16-ocean.light",
+            ThemeMode::Dark => "base16-mocha.dark",
+        };
+
         MarkdownRenderer {
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme_set: ThemeSet::load_defaults(),
-            theme: "base16-mocha.dark".to_string(),
+            theme: theme_name.to_string(),
             cache: HashMap::new(),
         }
+    }
+
+    pub fn set_theme(&mut self, theme_mode: &ThemeMode) {
+        let theme_name = match theme_mode {
+            ThemeMode::Light => "base16-ocean.light",
+            ThemeMode::Dark => "base16-mocha.dark",
+        };
+        self.theme = theme_name.to_string();
+        self.cache.clear();
     }
 
     pub fn render_markdown(
@@ -697,7 +713,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "# Header\n\nThis is **bold** and *italic* text.";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -716,7 +732,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_code_block() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "# Header\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
 
         let rendered = renderer
@@ -735,11 +751,11 @@ mod tests {
 
     #[test]
     fn test_render_json() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let json = r#"{
   "name": "John Doe",
   "age": 30,
-  "city": "New York"
+  "city": "New &ThemeMode::DarkYork"
 }"#;
 
         let rendered = renderer
@@ -759,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_lists() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown =
             "# List Test\n\n- Item 1\n- Item 2\n  - Nested item\n\n1. First item\n2. Second item";
         let rendered = renderer
@@ -778,7 +794,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_links() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "Visit [Google](https://google.com) for search";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -792,7 +808,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_blockquotes() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "> This is a blockquote\n> Another line";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -806,7 +822,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_task_lists() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "- [ ] Unchecked task\n- [x] Checked task\n- [ x ] Also checked task\n- [  ] Another unchecked task";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -824,7 +840,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_inline_code() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "Some `inline code` here";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -838,7 +854,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_strikethrough() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "This is ~~strikethrough~~ text";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 40)
@@ -856,7 +872,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_with_one_line_code_block() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "# Header\n\n```rust\n```\n\nText after.".to_string();
         let rendered = renderer
             .render_markdown(markdown, "".to_string(), 40)
@@ -882,7 +898,7 @@ mod tests {
 
     #[test]
     fn test_indentation_preservation() {
-        let mut renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new(&ThemeMode::Dark);
         let markdown = "Regular text\n    Indented text\n        Double indented text";
         let rendered = renderer
             .render_markdown(markdown.to_string(), "".to_string(), 50)

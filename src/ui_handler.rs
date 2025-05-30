@@ -97,12 +97,12 @@ pub fn draw_ui(
         if state.scrollable_textarea.full_screen_mode {
             state
                 .scrollable_textarea
-                .render(f, f.size(), theme)
+                .render(f, f.size(), theme, &state.config.theme)
                 .unwrap();
         } else {
             state
                 .scrollable_textarea
-                .render(f, chunks[1], theme)
+                .render(f, chunks[1], theme, &state.config.theme)
                 .unwrap();
         }
 
