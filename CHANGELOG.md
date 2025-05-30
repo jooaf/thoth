@@ -1,4 +1,9 @@
 
+## [0.1.84] - 2025-05-30
+
+- Fix: Fixing text color in light and dark mode (#34)
+
+
 ## [0.1.83] - 2025-04-14
 
 - Documentation: Update README to reflect copy block feature (#33)
