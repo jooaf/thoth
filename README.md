@@ -129,6 +129,21 @@ Users can toggle between light and dark modes while using the application:
 #### Persistent Configuration
 Theme preferences are stored in ~/.config/thoth/config.toml and persist between TUI sessions.
 
+### Custom Notes Location
+By default, Thoth saves notes to `~/thoth_notes.md`. You can customize this location using either:
+
+**Environment Variable** (highest priority):
+```bash
+export THOTH_NOTES_DIR=~/Documents/Obsidian
+```
+
+**Config File** (`~/.config/thoth/config.toml`) example:
+```toml
+theme = "Dark"
+notes_dir = "~/Documents/thoth"
+```
+Backup files (`thoth_notes_backup.md` and `thoth_clipboard.txt`) will be saved in the same directory as your main notes file.
+
 ### TUI 
 To start the TUI, simply type `thoth`. Since it is a persistent buffer, thoth will save when you hit quit using `q`.
 
