@@ -43,7 +43,6 @@ pub fn get_save_file_path() -> PathBuf {
     // Finally, use default
     home_dir().unwrap_or_default().join("thoth_notes.md")
 }
-
 pub fn get_save_backup_file_path() -> PathBuf {
     let main_path = get_save_file_path();
     let parent = main_path
@@ -51,7 +50,6 @@ pub fn get_save_backup_file_path() -> PathBuf {
         .unwrap_or_else(|| std::path::Path::new("."));
     parent.join("thoth_notes_backup.md")
 }
-
 pub fn get_clipboard_backup_file_path() -> PathBuf {
     let main_path = get_save_file_path();
     let parent = main_path
