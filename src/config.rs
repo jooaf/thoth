@@ -1,3 +1,6 @@
+use crate::ThemeColors;
+use crate::DARK_MODE_COLORS;
+use crate::LIGHT_MODE_COLORS;
 use anyhow::Result;
 use dirs::home_dir;
 use serde::{Deserialize, Serialize};
@@ -17,19 +20,20 @@ pub enum ThemeMode {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ThothConfig {
+    #[serde(default)]
     pub theme: ThemeMode,
+    #[serde(default)]
+    pub notes_dir: Option<String>,
 }
 
 impl ThothConfig {
     pub fn load() -> Result<Self> {
         let config_path = get_config_path();
-
         if !config_path.exists() {
             let default_config = Self::default();
             default_config.save()?;
             return Ok(default_config);
         }
-
         let config_str = fs::read_to_string(config_path)?;
         let config: ThothConfig = toml::from_str(&config_str)?;
         Ok(config)
@@ -37,14 +41,12 @@ impl ThothConfig {
 
     pub fn save(&self) -> Result<()> {
         let config_path = get_config_path();
-
         // Create directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent)?;
             }
         }
-
         let config_str = toml::to_string(self)?;
         fs::write(config_path, config_str)?;
         Ok(())

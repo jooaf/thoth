@@ -27,13 +27,37 @@ pub use title_select_popup::TitleSelectPopup;
 pub use utils::{load_textareas, save_textareas};
 
 pub fn get_save_file_path() -> PathBuf {
+    // First, check environment variable
+    if let Ok(custom_dir) = std::env::var("THOTH_NOTES_DIR") {
+        return PathBuf::from(shellexpand::tilde(&custom_dir).to_string()).join("thoth_notes.md");
+    }
+
+    // Second, check config file
+    if let Ok(config) = ThothConfig::load() {
+        if let Some(notes_dir) = config.notes_dir {
+            return PathBuf::from(shellexpand::tilde(&notes_dir).to_string())
+                .join("thoth_notes.md");
+        }
+    }
+
+    // Finally, use default
     home_dir().unwrap_or_default().join("thoth_notes.md")
 }
+
 pub fn get_save_backup_file_path() -> PathBuf {
-    home_dir().unwrap_or_default().join("thoth_notes_backup.md")
+    let main_path = get_save_file_path();
+    let parent = main_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    parent.join("thoth_notes_backup.md")
 }
+
 pub fn get_clipboard_backup_file_path() -> PathBuf {
-    home_dir().unwrap_or_default().join("thoth_clipboard.txt")
+    let main_path = get_save_file_path();
+    let parent = main_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    parent.join("thoth_clipboard.txt")
 }
 
 // The ORANGE constant is kept for backward compatibility
