@@ -26,11 +26,13 @@ pub struct ThothConfig {
 impl ThothConfig {
     pub fn load() -> Result<Self> {
         let config_path = get_config_path();
+        
         if !config_path.exists() {
             let default_config = Self::default();
             default_config.save()?;
             return Ok(default_config);
         }
+        
         let config_str = fs::read_to_string(config_path)?;
         let config: ThothConfig = toml::from_str(&config_str)?;
         Ok(config)
@@ -38,12 +40,14 @@ impl ThothConfig {
 
     pub fn save(&self) -> Result<()> {
         let config_path = get_config_path();
+        
         // Create directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent)?;
             }
         }
+        
         let config_str = toml::to_string(self)?;
         fs::write(config_path, config_str)?;
         Ok(())
