@@ -1,6 +1,3 @@
-use crate::ThemeColors;
-use crate::DARK_MODE_COLORS;
-use crate::LIGHT_MODE_COLORS;
 use anyhow::Result;
 use dirs::home_dir;
 use serde::{Deserialize, Serialize};
