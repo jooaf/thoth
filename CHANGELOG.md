@@ -1,4 +1,9 @@
 
+## [0.1.87] - 2025-10-25
+
+- Fix: Fixing Cargo release (#37)
+
+
 ## [0.1.86] - 2025-10-25
 
 - Improvement: Custom note location (#35)
