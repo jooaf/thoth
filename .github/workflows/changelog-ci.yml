@@ -7,10 +7,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Run Changelog CI
-      uses: saadmk11/changelog-ci@v1.1.2
+      uses: saadmk11/changelog-ci@v1.2.0
       with:
         config_file: .github/changelog-ci-config.yaml
       env:
