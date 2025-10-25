@@ -331,7 +331,7 @@ impl ScrollableTextArea {
         textarea.set_style(edit_style);
         textarea.set_cursor_style(cursor_style);
         textarea.set_selection_style(Style::default().bg(theme.selection));
-        f.render_widget(textarea.widget(), area);
+        f.render_widget(&*textarea, area);
     }
 
     pub fn render(
@@ -414,7 +414,7 @@ impl ScrollableTextArea {
                     textarea.set_style(style);
                     textarea
                         .set_cursor_style(Style::default().fg(theme.foreground).bg(theme.accent));
-                    f.render_widget(textarea.widget(), *chunk);
+                    f.render_widget(&*textarea, *chunk);
                 } else {
                     let content = textarea.lines().join("\n");
                     let rendered_markdown = self.markdown_cache.borrow_mut().get_or_render(

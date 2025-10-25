@@ -17,7 +17,10 @@ pub enum ThemeMode {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ThothConfig {
+    #[serde(default)]
     pub theme: ThemeMode,
+    #[serde(default)]
+    pub notes_dir: Option<String>,
 }
 
 impl ThothConfig {
