@@ -12,8 +12,6 @@ jobs:
       pull-requests: write
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
     - name: Run Changelog CI
       uses: saadmk11/changelog-ci@v1.2.0
       with:
