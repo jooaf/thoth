@@ -1,4 +1,9 @@
 
+## [0.1.86] - 2025-10-25
+
+- Improvement: Custom note location (#35)
+
+
 ## [0.1.85] - 2025-10-25
 
 - Fix: Update old cross version in ci/cd (#36)
