@@ -1,4 +1,9 @@
 
+## [0.1.85] - 2025-10-25
+
+- Fix: Update old cross version in ci/cd (#36)
+
+
 ## [0.1.84] - 2025-05-30
 
 - Fix: Fixing text color in light and dark mode (#34)
