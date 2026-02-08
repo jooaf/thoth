@@ -1,4 +1,9 @@
 
+## [0.1.88] - 2026-02-08
+
+- Improvement: bump time from 0.3.44 to 0.3.47 (#38)
+
+
 ## [0.1.87] - 2025-10-25
 
 - Fix: Fixing Cargo release (#37)
