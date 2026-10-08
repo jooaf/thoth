@@ -13,7 +13,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Run Changelog CI
-      uses: saadmk11/changelog-ci@v1.2.0
+      # Bookworm-based fix for v1.2.0's Debian Bullseye apt 404s; pinned to an immutable commit.
+      uses: omaib/changelog-ci@5a495b6b082f1196e6455a12f5d887c767f866b2
       with:
         config_file: .github/changelog-ci-config.yaml
       env:
