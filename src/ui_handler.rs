@@ -321,6 +321,12 @@ fn handle_full_screen_input(
                 state.scrollable_textarea.handle_scroll(1);
             }
         }
+        KeyCode::Char('k') if !state.scrollable_textarea.edit_mode => {
+            state.scrollable_textarea.handle_scroll(-1);
+        }
+        KeyCode::Char('j') if !state.scrollable_textarea.edit_mode => {
+            state.scrollable_textarea.handle_scroll(1);
+        }
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             if !state.scrollable_textarea.edit_mode {
                 if let Err(e) = extract_and_show_code_blocks(state) {
