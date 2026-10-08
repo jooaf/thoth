@@ -105,8 +105,6 @@ pub fn run_ui() -> Result<()> {
             state.last_draw = std::time::Instant::now();
         }
 
-        // Periodically persist a backup from the live buffer state (previously
-        // a background thread saved a stale startup snapshot every minute).
         if state.last_backup.elapsed() >= backup_interval {
             if let Err(e) = save_textareas(
                 &state.scrollable_textarea.textareas,

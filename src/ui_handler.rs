@@ -560,7 +560,7 @@ FORMATTING:
 OTHER:
   • ^l: Toggle light/dark theme
   • ^e: Edit with external editor (in edit mode)
-  • q: Quit application
+  •  q: Quit application
   • ^h: Show this help (or edit-commands popup in edit mode)";
 
             if state.scrollable_textarea.edit_mode {
