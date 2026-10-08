@@ -1,18 +1,15 @@
-use crate::{
-    get_save_backup_file_path, load_textareas, save_textareas, EditorClipboard, ThemeMode,
-    ThothConfig,
-};
+use crate::{get_save_file_path, EditorClipboard, ThemeMode, ThothConfig};
 use anyhow::{bail, Result};
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Write},
-};
+use std::{fs::File, io::Write};
 
 use std::env;
+use std::path::Path;
+use std::process::Command;
+use tempfile::NamedTempFile;
 
 use clap::{Parser, Subcommand};
 
-use crate::get_save_file_path;
+use crate::utils::{parse_notes, write_notes, ParsedNotes};
 #[derive(Parser)]
 #[command(author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about, long_about = None, rename_all = "snake_case")]
 pub struct Cli {
@@ -23,7 +20,8 @@ pub struct Cli {
 #[derive(Subcommand)]
 #[command(rename_all = "snake_case")]
 pub enum Commands {
-    /// Add a new block to the scratchpad
+    /// Add a new block to the scratchpad.
+    /// If a block with the same name already exists, the content is appended to it.
     Add {
         /// Name of the block to be added
         name: String,
@@ -31,7 +29,11 @@ pub enum Commands {
         content: Option<String>,
     },
     /// List all of the blocks within your thoth scratchpad
-    List,
+    List {
+        /// Show additional details such as line counts per block
+        #[arg(short = 'l', long)]
+        long: bool,
+    },
     /// Load backup file as the main thoth markdown file
     LoadBackup,
     /// Read the contents of the clipboard backup file
@@ -49,6 +51,18 @@ pub enum Commands {
     /// Copy the contents of a block to the system clipboard
     Copy {
         /// The name of the block to be used
+        name: String,
+    },
+    /// Rename a block
+    Rename {
+        /// Current name of the block
+        old_name: String,
+        /// New name for the block
+        new_name: String,
+    },
+    /// Edit the contents of a block with your $EDITOR/$VISUAL editor
+    Edit {
+        /// The name of the block to be edited
         name: String,
     },
     /// Set the theme to light or dark mode
@@ -109,29 +123,75 @@ pub fn read_clipboard_backup() -> Result<()> {
     Ok(())
 }
 
+/// Load the notes file as parsed blocks. Returns an empty result when the file
+/// does not exist yet.
+fn load_parsed_notes(file_path: &Path) -> Result<ParsedNotes> {
+    if !file_path.exists() {
+        return Ok(ParsedNotes::default());
+    }
+    let content = std::fs::read_to_string(file_path)?;
+    Ok(parse_notes(&content))
+}
+
+/// Write parsed blocks to the notes file, creating parent directories as needed.
+fn save_parsed_notes(file_path: &Path, parsed: &ParsedNotes) -> Result<()> {
+    if let Some(parent) = file_path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    let mut file = File::create(file_path)?;
+    write_notes(&mut file, parsed)
+}
+
+fn find_block_index(parsed: &ParsedNotes, name: &str) -> Option<usize> {
+    parsed.blocks.iter().position(|(title, _)| title == name)
+}
+
 pub fn add_block(name: &str, content: &str) -> Result<()> {
-    let mut file = std::fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(get_save_file_path())?;
+    let file_path = get_save_file_path();
+    let mut parsed = load_parsed_notes(&file_path)?;
+    let content_lines: Vec<String> = content.lines().map(str::to_string).collect();
 
-    writeln!(file, "# {}", name)?;
-    writeln!(file, "{}", content)?;
-    writeln!(file)?;
-
-    println!("Block '{}' added successfully.", name);
+    if let Some(index) = find_block_index(&parsed, name) {
+        let lines = &mut parsed.blocks[index].1;
+        // Separate appended content from existing content with a blank line
+        if let Some(last) = lines.last() {
+            if !last.is_empty() {
+                lines.push(String::new());
+            }
+        }
+        lines.extend(content_lines);
+        save_parsed_notes(&file_path, &parsed)?;
+        println!("Appended content to existing block '{}'.", name);
+    } else {
+        parsed.blocks.push((name.to_string(), content_lines));
+        save_parsed_notes(&file_path, &parsed)?;
+        println!("Block '{}' added successfully.", name);
+    }
     Ok(())
 }
 
 pub fn list_blocks() -> Result<()> {
-    let file = File::open(get_save_file_path())?;
-    let reader = BufReader::new(file);
+    list_blocks_with_options(false)
+}
 
-    for line in reader.lines() {
-        let line = line?;
+pub fn list_blocks_with_options(long: bool) -> Result<()> {
+    let file_path = get_save_file_path();
+    if !file_path.exists() {
+        println!(
+            "No notes file found at {}. Add one with `thoth add <name> <content>` or start the TUI with `thoth`.",
+            file_path.display()
+        );
+        return Ok(());
+    }
 
-        if let Some(strip) = line.strip_prefix("# ") {
-            println!("{}", strip);
+    let parsed = load_parsed_notes(&file_path)?;
+    for (title, lines) in &parsed.blocks {
+        if long {
+            println!("{} ({} lines)", title, lines.len());
+        } else {
+            println!("{}", title);
         }
     }
 
@@ -139,8 +199,9 @@ pub fn list_blocks() -> Result<()> {
 }
 
 pub fn replace_from_backup() -> Result<()> {
-    let (backup_textareas, backup_textareas_titles) = load_textareas(get_save_backup_file_path())?;
-    save_textareas(
+    let (backup_textareas, backup_textareas_titles) =
+        crate::load_textareas(crate::get_save_backup_file_path())?;
+    crate::save_textareas(
         &backup_textareas,
         &backup_textareas_titles,
         get_save_file_path(),
@@ -148,138 +209,230 @@ pub fn replace_from_backup() -> Result<()> {
 }
 
 pub fn view_block(name: &str) -> Result<()> {
-    let file = File::open(get_save_file_path())?;
-    let reader = BufReader::new(file);
-    let mut blocks = Vec::new();
-    let mut current_block = Vec::new();
-    let mut current_name = String::new();
+    let parsed = load_parsed_notes(&get_save_file_path())?;
 
-    for line in reader.lines() {
-        let line = line?;
-        if let Some(strip) = line.strip_prefix("# ") {
-            if !current_name.is_empty() {
-                blocks.push((current_name, current_block));
-                current_block = Vec::new();
-            }
-            current_name = strip.to_string();
-        } else {
-            current_block.push(line);
-        }
-    }
-
-    if !current_name.is_empty() {
-        blocks.push((current_name, current_block));
-    }
-
-    for (block_name, block_content) in blocks {
-        if block_name == name {
-            for line in block_content {
+    match find_block_index(&parsed, name) {
+        Some(index) => {
+            for line in &parsed.blocks[index].1 {
                 println!("{}", line);
             }
         }
+        None => bail!(
+            "Block '{}' not found. Use `thoth list` to see available blocks.",
+            name
+        ),
     }
     Ok(())
 }
 
 pub fn copy_block(name: &str) -> Result<()> {
-    let file = File::open(get_save_file_path())?;
-    let reader = BufReader::new(file);
-    let mut blocks = Vec::new();
-    let mut current_block = Vec::new();
-    let mut current_name = String::new();
-    let mut matched_name: Option<String> = None;
+    let parsed = load_parsed_notes(&get_save_file_path())?;
 
-    for line in reader.lines() {
-        let line = line?;
-        if let Some(strip) = line.strip_prefix("# ") {
-            if !current_name.is_empty() {
-                blocks.push((current_name, current_block));
-                current_block = Vec::new();
-            }
-            current_name = strip.to_string();
-        } else {
-            current_block.push(line);
+    match find_block_index(&parsed, name) {
+        Some(index) => {
+            let content = parsed.blocks[index].1.join("\n");
+            let mut ctx = EditorClipboard::new()
+                .map_err(|e| anyhow::anyhow!("Failed to create clipboard context: {}", e))?;
+            ctx.set_contents(content).map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to copy contents of block {} to system clipboard: {}",
+                    name,
+                    e
+                )
+            })?;
+            println!("Successfully copied contents from block {}", name);
         }
+        None => bail!(
+            "Didn't find the block. Please try again. You can use `thoth list` to find the name of all blocks"
+        ),
     }
-
-    if !current_name.is_empty() {
-        blocks.push((current_name, current_block));
-    }
-
-    for (block_name, block_content) in blocks {
-        if block_name == name {
-            let result_ctx = EditorClipboard::new();
-
-            if result_ctx.is_err() {
-                bail!("Failed to create clipboard context for copy block");
-            }
-
-            let mut ctx = result_ctx.unwrap();
-
-            let is_success = ctx.set_contents(block_content.join("\n"));
-
-            if is_success.is_err() {
-                bail!(format!(
-                    "Failed to copy contents of block {} to system clipboard",
-                    block_name
-                ));
-            }
-            matched_name = Some(block_name);
-            break;
-        }
-    }
-    match matched_name {
-        Some(name) => println!("Successfully copied contents from block {}", name),
-        None => println!("Didn't find the block. Please try again. You can use `thoth list` to find the name of all blocks")
-    };
-
     Ok(())
 }
 
 pub fn delete_block(name: &str) -> Result<()> {
-    let file = File::open(get_save_file_path())?;
-    let reader = BufReader::new(file);
-    let mut blocks = Vec::new();
-    let mut current_block = Vec::new();
-    let mut current_name = String::new();
+    let file_path = get_save_file_path();
+    let parsed = load_parsed_notes(&file_path)?;
 
-    for line in reader.lines() {
-        let line = line?;
-        if let Some(strip) = line.strip_prefix("# ") {
-            if !current_name.is_empty() {
-                blocks.push((current_name, current_block));
-                current_block = Vec::new();
-            }
-            current_name = strip.to_string();
-        } else {
-            current_block.push(line);
+    match find_block_index(&parsed, name) {
+        Some(index) => {
+            let mut remaining = parsed;
+            remaining.blocks.remove(index);
+            save_parsed_notes(&file_path, &remaining)?;
+            println!("Block '{}' deleted successfully.", name);
         }
+        None => bail!("Block '{}' not found.", name),
     }
-
-    if !current_name.is_empty() {
-        blocks.push((current_name, current_block));
-    }
-
-    let mut file = File::create(get_save_file_path())?;
-    let mut deleted = false;
-
-    for (block_name, block_content) in blocks {
-        if block_name != name {
-            writeln!(file, "# {}", block_name)?;
-            for line in block_content {
-                writeln!(file, "{}", line)?;
-            }
-            writeln!(file)?;
-        } else {
-            deleted = true;
-        }
-    }
-
-    if deleted {
-        println!("Block '{}' deleted successfully.", name);
-    } else {
-        println!("Block '{}' not found.", name);
-    }
-
     Ok(())
+}
+
+pub fn rename_block(old_name: &str, new_name: &str) -> Result<()> {
+    let file_path = get_save_file_path();
+    let mut parsed = load_parsed_notes(&file_path)?;
+    // Renaming to an existing name would create a duplicate block
+    let new_index = find_block_index(&parsed, new_name);
+    if let Some(index) = new_index {
+        if parsed.blocks[index].0 == new_name && Some(index) != find_block_index(&parsed, old_name)
+        {
+            bail!(
+                "A block named '{}' already exists. Choose a different name.",
+                new_name
+            );
+        }
+    }
+
+    match find_block_index(&parsed, old_name) {
+        Some(index) => {
+            parsed.blocks[index].0 = new_name.to_string();
+            save_parsed_notes(&file_path, &parsed)?;
+            println!("Block '{}' renamed to '{}'.", old_name, new_name);
+        }
+        None => bail!(
+            "Block '{}' not found. Use `thoth list` to see available blocks.",
+            old_name
+        ),
+    }
+    Ok(())
+}
+
+pub fn edit_block(name: &str) -> Result<()> {
+    let file_path = get_save_file_path();
+    let mut parsed = load_parsed_notes(&file_path)?;
+    let index = find_block_index(&parsed, name).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Block '{}' not found. Use `thoth list` to see available blocks.",
+            name
+        )
+    })?;
+
+    let content = parsed.blocks[index].1.join("\n");
+    let mut temp_file = NamedTempFile::new()?;
+    temp_file.write_all(content.as_bytes())?;
+    temp_file.flush()?;
+
+    let editor = env::var("VISUAL")
+        .or_else(|_| env::var("EDITOR"))
+        .unwrap_or_else(|_| "vi".to_string());
+
+    let status = Command::new(&editor).arg(temp_file.path()).status()?;
+    if !status.success() {
+        bail!(format!("Editor '{}' returned non-zero status", editor));
+    }
+
+    let edited_content = std::fs::read_to_string(temp_file.path())?;
+    parsed.blocks[index].1 = edited_content.lines().map(str::to_string).collect();
+    save_parsed_notes(&file_path, &parsed)?;
+    println!("Block '{}' updated successfully.", name);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    // The notes location is process-global, so serialize tests that touch it.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_notes_dir<F: FnOnce()>(f: F) {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = tempfile::TempDir::new().unwrap();
+        std::env::set_var("THOTH_NOTES_DIR", dir.path());
+        f();
+        std::env::remove_var("THOTH_NOTES_DIR");
+    }
+
+    fn notes_file() -> PathBuf {
+        get_save_file_path()
+    }
+
+    fn file_content() -> String {
+        std::fs::read_to_string(notes_file()).unwrap()
+    }
+
+    #[test]
+    fn test_add_creates_new_block() {
+        with_notes_dir(|| {
+            add_block("groceries", "bananas\nmilk").unwrap();
+            assert_eq!(file_content(), "# groceries\nbananas\nmilk\n");
+        });
+    }
+
+    #[test]
+    fn test_add_existing_block_appends() {
+        with_notes_dir(|| {
+            add_block("groceries", "bananas").unwrap();
+            add_block("groceries", "milk").unwrap();
+            assert_eq!(file_content(), "# groceries\nbananas\n\nmilk\n");
+        });
+    }
+
+    #[test]
+    fn test_add_preserves_code_fences() {
+        with_notes_dir(|| {
+            add_block("code", "```rust\n# comment\n```\nheading after code").unwrap();
+            let content = file_content();
+            // Content inside a fenced block is kept verbatim (unescaped)
+            assert_eq!(
+                content,
+                "# code\n```rust\n# comment\n```\nheading after code\n"
+            );
+        });
+    }
+
+    #[test]
+    fn test_view_missing_block_errors() {
+        with_notes_dir(|| {
+            add_block("real", "content").unwrap();
+            assert!(view_block("missing").is_err());
+        });
+    }
+
+    #[test]
+    fn test_delete_missing_block_preserves_file() {
+        with_notes_dir(|| {
+            add_block("keeper", "content").unwrap();
+            let before = file_content();
+            assert!(delete_block("nope").is_err());
+            assert_eq!(file_content(), before);
+        });
+    }
+
+    #[test]
+    fn test_delete_existing_block() {
+        with_notes_dir(|| {
+            add_block("keeper", "content").unwrap();
+            add_block("doomed", "bye").unwrap();
+            delete_block("doomed").unwrap();
+            let content = file_content();
+            assert!(content.contains("# keeper"));
+            assert!(!content.contains("doomed"));
+        });
+    }
+
+    #[test]
+    fn test_rename_block() {
+        with_notes_dir(|| {
+            add_block("old", "content").unwrap();
+            rename_block("old", "new").unwrap();
+            let content = file_content();
+            assert!(content.contains("# new"));
+            assert!(!content.contains("# old"));
+
+            // Renaming to an existing name is rejected
+            add_block("other", "x").unwrap();
+            assert!(rename_block("other", "new").is_err());
+        });
+    }
+
+    #[test]
+    fn test_preamble_preserved_on_rewrite() {
+        with_notes_dir(|| {
+            let dir = notes_file();
+            std::fs::create_dir_all(dir.parent().unwrap()).unwrap();
+            std::fs::write(&dir, "loose notes\n# block\ncontent\n").unwrap();
+            delete_block("block").unwrap();
+            assert_eq!(file_content(), "loose notes\n");
+        });
+    }
 }

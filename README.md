@@ -213,13 +213,17 @@ A terminal scratchpad akin to Heynote
 Usage: thoth [COMMAND]
 
 Commands:
-  add             Add a new block to the scratchpad
+  add             Add a new block to the scratchpad. If a block with the same
+                  name already exists, the content is appended to it
   list            List all of the blocks within your thoth scratchpad
+                  (-l/--long shows the size of each block in lines)
   load_backup     Load backup file as the main thoth markdown file
   read_clipboard  Read the contents of the clipboard backup file
   delete          Delete a block by name
   view            View (STDOUT) the contents of the block by name
   copy            Copy the contents of a block to the system clipboard
+  rename          Rename a block
+  edit            Edit the contents of a block with your $EDITOR/$VISUAL editor
   theme           Set the theme to light or dark mode
   get_theme       Get the current theme
   help            Print this message or the help of the given subcommand(s)
@@ -229,15 +233,32 @@ Options:
   -V, --version  Print version
 ```
 
+All subcommands that look up blocks by name (`view`, `copy`, `delete`,
+`rename`, `edit`) exit with a non-zero status code when the block does not
+exist, so they behave correctly in scripts and pipelines.
+
 #### Examples 
 ```nu
 # For adding new blocks 
 thoth add hello_world "Hello, World!";
+# Adding to an existing block appends the content (no duplicate blocks)
+thoth add hello_world "A follow-up thought";
 # For adding new blocks with content from STDIN 
 echo "Hello, World (from STDIN)" | thoth add hello_world_stdin;
 # Using view to pipe contents into another command
 thoth view hello_world_stdin | cat
+# Rename a block
+thoth rename scratch "daily notes"
+# Edit a block in your $EDITOR/$VISUAL (defaults to vi)
+thoth edit scratch
+# Show blocks with their line counts
+thoth list -l
 ```
+
+#### Nushell Completions
+The `scripts/completions/thoth.nu` module provides tab-completions (block names
+via `thoth list`) for the `view`, `copy`, `delete`, `rename`, and `edit`
+subcommands, plus the `-l/--long` flag for `list`.
 
 ### Clipboard Fallback for Wayland Users
 

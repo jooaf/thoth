@@ -8,14 +8,14 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{
     io::{self, Read},
-    thread,
+    time::Instant,
 };
 use thoth_cli::{
     cli::{
-        add_block, copy_block, delete_block, get_theme, list_blocks, read_clipboard_backup,
-        replace_from_backup, set_theme, view_block,
+        add_block, copy_block, delete_block, edit_block, get_theme, list_blocks_with_options,
+        read_clipboard_backup, rename_block, replace_from_backup, set_theme, view_block,
     },
-    get_save_backup_file_path, EditorClipboard,
+    get_save_backup_file_path,
 };
 use thoth_cli::{
     cli::{Cli, Commands},
@@ -48,8 +48,8 @@ fn main() -> Result<()> {
             };
             add_block(name, &content)?;
         }
-        Some(Commands::List) => {
-            list_blocks()?;
+        Some(Commands::List { long }) => {
+            list_blocks_with_options(*long)?;
         }
         Some(Commands::ReadClipboard) => {
             read_clipboard_backup()?;
@@ -65,6 +65,12 @@ fn main() -> Result<()> {
         }
         Some(Commands::Copy { name }) => {
             copy_block(name)?;
+        }
+        Some(Commands::Rename { old_name, new_name }) => {
+            rename_block(old_name, new_name)?;
+        }
+        Some(Commands::Edit { name }) => {
+            edit_block(name)?;
         }
         Some(Commands::Theme { mode }) => {
             set_theme(mode)?;
@@ -90,19 +96,26 @@ pub fn run_ui() -> Result<()> {
     let mut state = UIState::new()?;
 
     let draw_interval = Duration::from_millis(33);
-
-    let copy_textareas = state.scrollable_textarea.textareas.clone();
-    let copy_titles = state.scrollable_textarea.titles.clone();
-    thread::spawn(move || loop {
-        let _ = save_textareas(&copy_textareas, &copy_titles, get_save_backup_file_path());
-        thread::sleep(Duration::from_secs(60)); // save backup every minute
-    });
+    let backup_interval = Duration::from_secs(60);
 
     loop {
         let should_draw = state.last_draw.elapsed() >= draw_interval;
         if should_draw {
             draw_ui(&mut terminal, &mut state)?;
             state.last_draw = std::time::Instant::now();
+        }
+
+        // Periodically persist a backup from the live buffer state (previously
+        // a background thread saved a stale startup snapshot every minute).
+        if state.last_backup.elapsed() >= backup_interval {
+            if let Err(e) = save_textareas(
+                &state.scrollable_textarea.textareas,
+                &state.scrollable_textarea.titles,
+                get_save_backup_file_path(),
+            ) {
+                eprintln!("Warning: failed to save backup: {}", e);
+            }
+            state.last_backup = Instant::now();
         }
 
         if event::poll(Duration::from_millis(1))? {

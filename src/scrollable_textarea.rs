@@ -298,20 +298,39 @@ impl ScrollableTextArea {
     }
 
     pub fn copy_selection_contents(&mut self) -> anyhow::Result<()> {
+        let mut content = String::new();
         if let Some(textarea) = self.textareas.get(self.focused_index) {
             let all_lines = textarea.lines();
             let (cur_row, _) = textarea.cursor();
             let min_row = min(cur_row, self.start_sel);
             let max_row = max(cur_row, self.start_sel);
 
-            if max_row <= all_lines.len() {
-                let content = all_lines[min_row..max_row].join("\n");
-                let mut ctx = EditorClipboard::new().unwrap();
-                ctx.set_contents(content).unwrap();
+            if min_row < all_lines.len() {
+                let max_row = min(max_row, all_lines.len());
+                content = all_lines[min_row..max_row].join("\n");
             }
         }
-        // reset selection
-        self.start_sel = 0;
+
+        let backup_path = crate::get_clipboard_backup_file_path();
+        match EditorClipboard::new() {
+            Ok(mut ctx) => {
+                if let Err(e) = ctx.set_contents(content.clone()) {
+                    let _ = std::fs::write(&backup_path, &content);
+                    return Err(anyhow::anyhow!(
+                        "Failed to copy selection to clipboard: {}. Content saved to: {}",
+                        e.to_string().split('\n').next().unwrap_or("Unknown error"),
+                        backup_path.display()
+                    ));
+                }
+            }
+            Err(_) => {
+                let _ = std::fs::write(&backup_path, &content);
+                return Err(anyhow::anyhow!(
+                    "Clipboard unavailable.\nContent saved to: {}\nPlease use 'thoth read_clipboard' to read the contents from STDOUT.",
+                    backup_path.display()
+                ));
+            }
+        }
         Ok(())
     }
 

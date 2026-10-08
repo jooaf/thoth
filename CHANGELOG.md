@@ -1,4 +1,17 @@
 
+## [Unreleased]
+
+- Feature: CLI `rename` and `edit` (open a block in `$EDITOR`/`$VISUAL`) commands, and `list -l`/`--long` to show block sizes
+- Improvement: `thoth add` appends to an existing block with the same name instead of silently creating duplicates
+- Improvement: CLI block lookups (`view`, `copy`, `delete`, `rename`, `edit`) exit with an error and non-zero status when the block is not found
+- Fix: Periodic TUI backups no longer save a stale snapshot taken at startup; they now save live buffer state
+- Fix: Content before the first block header in the notes file is no longer discarded (it loads as an "Untitled" block)
+- Fix: CLI now unescapes `\#` heading lines like the TUI, and `delete`/`add` preserve lines outside of blocks and no longer rewrite the file for no-op deletes
+- Fix: Copy-selection (`ctrl-b`) in edit mode no longer panics when the system clipboard is unavailable; it falls back to the clipboard backup file
+- Fix: `ctrl-h` in edit mode now opens the edit-commands popup (previously unreachable); it works in fullscreen edit mode too
+- Fix: Pasting in edit mode no longer adds a trailing newline when the clipboard content did not have one
+
+
 ## [0.1.87] - 2025-10-25
 
 - Fix: Fixing Cargo release (#37)

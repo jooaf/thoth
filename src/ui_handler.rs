@@ -40,6 +40,7 @@ pub struct UIState {
     pub code_block_popup: CodeBlockPopup,
     pub clipboard: Option<EditorClipboard>,
     pub last_draw: Instant,
+    pub last_backup: Instant,
     pub config: ThothConfig,
 }
 
@@ -70,6 +71,7 @@ impl UIState {
             code_block_popup: CodeBlockPopup::new(),
             clipboard: EditorClipboard::try_new(),
             last_draw: Instant::now(),
+            last_backup: Instant::now(),
             config,
         })
     }
@@ -127,10 +129,6 @@ pub fn draw_ui(
         if state.help_popup.visible {
             render_ui_popup(f, &state.help_popup, theme);
         }
-
-        if state.help_popup.visible {
-            render_ui_popup(f, &state.help_popup, theme);
-        }
     })?;
     Ok(())
 }
@@ -140,22 +138,20 @@ fn handle_code_block_popup_input(state: &mut UIState, key: event::KeyEvent) -> R
         (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize - 4;
 
     match key.code {
-        KeyCode::Enter => {
-            if !state.code_block_popup.filtered_blocks.is_empty() {
-                let selected_index = state.code_block_popup.selected_index;
-                let content = state.code_block_popup.filtered_blocks[selected_index]
-                    .content
-                    .clone();
-                let language = state.code_block_popup.filtered_blocks[selected_index]
-                    .language
-                    .clone();
+        KeyCode::Enter if !state.code_block_popup.filtered_blocks.is_empty() => {
+            let selected_index = state.code_block_popup.selected_index;
+            let content = state.code_block_popup.filtered_blocks[selected_index]
+                .content
+                .clone();
+            let language = state.code_block_popup.filtered_blocks[selected_index]
+                .language
+                .clone();
 
-                if let Err(e) = copy_code_block_content_to_clipboard(state, &content, &language) {
-                    state.error_popup.show(format!("{}", e));
-                }
-
-                state.code_block_popup.visible = false;
+            if let Err(e) = copy_code_block_content_to_clipboard(state, &content, &language) {
+                state.error_popup.show(format!("{}", e));
             }
+
+            state.code_block_popup.visible = false;
         }
         KeyCode::Esc => {
             state.code_block_popup.visible = false;
@@ -298,6 +294,11 @@ fn handle_full_screen_input(
                 }
             }
         }
+        KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if state.scrollable_textarea.edit_mode {
+                state.edit_commands_popup.visible = !state.edit_commands_popup.visible;
+            }
+        }
         KeyCode::Enter => {
             if !state.scrollable_textarea.edit_mode {
                 state.scrollable_textarea.edit_mode = true;
@@ -397,18 +398,16 @@ fn handle_title_select_popup_input(state: &mut UIState, key: event::KeyEvent) ->
         (state.scrollable_textarea.viewport_height as f32 * 0.8).floor() as usize - 10;
 
     match key.code {
-        KeyCode::Enter => {
-            if !state.title_select_popup.filtered_titles.is_empty() {
-                let selected_title_match = &state.title_select_popup.filtered_titles
-                    [state.title_select_popup.selected_index];
-                state
-                    .scrollable_textarea
-                    .jump_to_textarea(selected_title_match.index);
-                state.title_select_popup.visible = false;
-                if !state.title_select_popup.search_query.is_empty() {
-                    state.title_select_popup.search_query.clear();
-                    state.title_select_popup.reset_filtered_titles();
-                }
+        KeyCode::Enter if !state.title_select_popup.filtered_titles.is_empty() => {
+            let selected_title_match =
+                &state.title_select_popup.filtered_titles[state.title_select_popup.selected_index];
+            state
+                .scrollable_textarea
+                .jump_to_textarea(selected_title_match.index);
+            state.title_select_popup.visible = false;
+            if !state.title_select_popup.search_query.is_empty() {
+                state.title_select_popup.search_query.clear();
+                state.title_select_popup.reset_filtered_titles();
             }
         }
         KeyCode::Esc => {
@@ -556,18 +555,17 @@ OTHER:
   • ^l: Toggle light/dark theme
   • ^e: Edit with external editor (in edit mode)
   • q: Quit application
-  • ^h: Show this help";
+  • ^h: Show this help (or edit-commands popup in edit mode)";
 
-            state.help_popup.show(help_message.to_string());
+            if state.scrollable_textarea.edit_mode {
+                state.edit_commands_popup.visible = !state.edit_commands_popup.visible;
+            } else {
+                state.help_popup.show(help_message.to_string());
+            }
         }
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             if !state.scrollable_textarea.edit_mode {
                 state.scrollable_textarea.toggle_full_screen();
-            }
-        }
-        KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            if state.scrollable_textarea.edit_mode {
-                state.edit_commands_popup.visible = !state.edit_commands_popup.visible;
             }
         }
         #[allow(clippy::assigning_clones)]
@@ -782,13 +780,11 @@ fn handle_paste(state: &mut UIState) -> Result<()> {
                 if let Ok(content) = clip.get_content() {
                     let textarea = &mut state.scrollable_textarea.textareas
                         [state.scrollable_textarea.focused_index];
-                    for line in content.lines() {
+                    for (i, line) in content.lines().enumerate() {
+                        if i > 0 {
+                            textarea.insert_newline();
+                        }
                         textarea.insert_str(line);
-                        textarea.insert_newline();
-                    }
-                    // Remove the last extra newline
-                    if content.ends_with('\n') {
-                        textarea.delete_char();
                     }
                 }
             }

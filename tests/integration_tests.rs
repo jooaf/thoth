@@ -1,16 +1,13 @@
 use anyhow::Result;
-use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
 use thoth_cli::{
-    format_json, format_markdown, get_save_file_path, EditorClipboard, ScrollableTextArea,
-    TitlePopup, TitleSelectPopup,
+    format_json, format_markdown, get_save_file_path, ScrollableTextArea, TitlePopup,
+    TitleSelectPopup,
 };
 use tui_textarea::TextArea;
 
 #[cfg(test)]
 mod test_utils {
     use super::*;
-    use std::sync::{Arc, Mutex};
 
     pub struct MockClipboard {
         content: String,

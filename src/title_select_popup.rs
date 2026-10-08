@@ -117,7 +117,7 @@ impl TitleSelectPopup {
             })
             .collect();
 
-        matched_titles.sort_by(|a, b| b.score.cmp(&a.score));
+        matched_titles.sort_by_key(|b| std::cmp::Reverse(b.score));
 
         self.filtered_titles = matched_titles;
 

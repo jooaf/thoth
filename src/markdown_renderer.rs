@@ -863,7 +863,7 @@ mod tests {
         let has_strikethrough = rendered.lines.iter().any(|line| {
             line.spans.iter().any(|span| {
                 let modifiers = span.style.add_modifier;
-                return modifiers.contains(Modifier::CROSSED_OUT);
+                modifiers.contains(Modifier::CROSSED_OUT)
             })
         });
 
