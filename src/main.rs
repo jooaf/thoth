@@ -6,6 +6,8 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
+#[cfg(target_os = "linux")]
+use thoth_cli::EditorClipboard;
 use std::{
     io::{self, Read},
     time::Instant,
