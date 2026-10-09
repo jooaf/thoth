@@ -64,7 +64,7 @@ impl MarkdownRenderer {
         title: String,
         width: usize,
     ) -> Result<Text<'static>> {
-        if let Some(lines) = self.cache.get(&format!("{}{}", &title, &markdown)) {
+        if let Some(lines) = self.cache.get(&format!("{}{}", title, markdown)) {
             return Ok(lines.clone());
         }
 
@@ -132,7 +132,7 @@ impl MarkdownRenderer {
         }
 
         let markdown_lines = Text::from(lines);
-        let new_key = &format!("{}{}", &title, &markdown);
+        let new_key = &format!("{}{}", title, markdown);
         self.cache.insert(new_key.clone(), markdown_lines.clone());
         Ok(markdown_lines)
     }
@@ -863,7 +863,7 @@ mod tests {
         let has_strikethrough = rendered.lines.iter().any(|line| {
             line.spans.iter().any(|span| {
                 let modifiers = span.style.add_modifier;
-                return modifiers.contains(Modifier::CROSSED_OUT);
+                modifiers.contains(Modifier::CROSSED_OUT)
             })
         });
 

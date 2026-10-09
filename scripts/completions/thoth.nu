@@ -47,6 +47,16 @@ module completions {
   export extern "thoth copy" [
      name: string@"nu-complete thoth copy"
   ]
+  export extern "thoth rename" [
+     old_name: string@"nu-complete thoth delete"
+     new_name: string
+  ]
+  export extern "thoth edit" [
+     name: string@"nu-complete thoth copy"
+  ]
+  export extern "thoth list" [
+     --long(-l)
+  ]
 }
 
 
