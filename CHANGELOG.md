@@ -1,4 +1,9 @@
 
+## [0.1.89] - 2026-10-09
+
+- Feature: CLI quality-of-life features and bug fixes (#39)
+
+
 ## [0.1.88] - 2026-02-08
 
 - Improvement: bump time from 0.3.44 to 0.3.47 (#38)
